@@ -21,6 +21,12 @@ Interfejs jest po polsku, nauczane słownictwo jest angielskie.
     (wymaga własnego klucza API wpisanego w Ustawieniach, przechowywanego
     tylko lokalnie). Zdjęcie nigdy nie jest wysyłane na zewnątrz bez
     wyraźnego potwierdzenia w UI.
+  - Rozpoznaje też format podręcznikowych list słownictwa
+    (`wyrażenie /wymowa/ tłumaczenie`) i wyciąga całe wyrażenia (razem z
+    idiomami typu "take after sb") wraz z gotowym tłumaczeniem z
+    podręcznika, zamiast rozbijać je na pojedyncze słowa.
+- **Foldery** – opcjonalne grupowanie talii w foldery, żeby łatwiej
+  segregować większą liczbę talii tematycznie.
 - **Nauka** – powtórki algorytmem **SM-2**, oceny Nie pamiętam / Trudne /
   Dobrze / Łatwo, tryb klasycznej fiszki (odwracanie) i tryb wpisywania
   odpowiedzi, kierunek EN→PL lub PL→EN, konfigurowalne dzienne limity

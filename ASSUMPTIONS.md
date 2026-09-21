@@ -54,6 +54,23 @@ decyzji technologicznych.
 
 Wybór metody: **domyślnie Tesseract.js**, przełącznik w Ustawieniach.
 
+### Rozpoznawanie list słownictwa (formatu "wyrażenie /wymowa/ tłumaczenie")
+
+Wiele podręcznikowych słowniczków drukuje słownictwo w formacie jednej linii
+na wyrażenie, np. `take after sb /teɪk ˈɑːftə ˈsʌmbədi/ być podobnym do
+kogoś`. Zwykła tokenizacja słowo-po-słowie rozjeżdżałaby taki wpis na
+bezsensowne fragmenty (`take`, `after`, `sb`). `src/ocr/glossary.ts`
+rozpoznaje ten format (szuka pary ukośników otaczających transkrypcję
+fonetyczną, odróżniając je od ukośników użytych jako „lub” w treści
+wyrażenia/tłumaczenia po analizie sąsiadujących białych znaków) i wyciąga
+całe wyrażenie razem z gotowym tłumaczeniem z podręcznika — bez
+odpytywania zewnętrznego API. Jeśli rozpoznany tekst nie wygląda na taki
+słowniczek (za mało dopasowanych linii), aplikacja wraca do zwykłej
+ekstrakcji słowo-po-słowie. Skróty-zastępniki `sb`/`sth`/`smb`/`smth`
+używane w podręcznikach jako placeholder na dopełnienie są dodane do listy
+stopwords, żeby nie pojawiały się jako osobne, bezsensowne kandydatury w
+trybie ekstrakcji zwykłego tekstu.
+
 ## Tłumaczenia
 
 - Podpowiedź tłumaczenia w formularzu ręcznego dodawania fiszki oraz
@@ -69,6 +86,21 @@ Wybór metody: **domyślnie Tesseract.js**, przełącznik w Ustawieniach.
   bez tłumaczenia” w przypadku braku internetu lub ograniczonych źródeł.
 - Brak internetu podczas dodawania ze zdjęcia nie blokuje zapisu: kandydaci
   są zapisywani z pustymi tłumaczeniami, które można uzupełnić później.
+- Podpowiedź tłumaczenia w formularzu ręcznego dodawania fiszki korzysta z
+  tej samej funkcji `enrichWord`, co dodawanie ze zdjęcia: jeśli
+  skonfigurowano klucz AI, tłumaczenie (i przykładowe zdanie, jeśli pole
+  jest puste) pochodzi z modelu językowego, co radzi sobie znacznie lepiej
+  z wyrażeniami wieloczłonowymi i idiomami niż tłumaczenie słowo-po-słowie
+  z MyMemory.
+
+## Foldery talii
+
+Talie można opcjonalnie przypisać do folderu (encja `Folder` w
+`src/db/folders.ts`), żeby segregować większą liczbę talii tematycznie.
+Usunięcie folderu nie usuwa talii — tylko odpina je od folderu
+(`folderId: null`). Talie bez folderu wyświetlane są w osobnej sekcji
+„Bez folderu” (tylko gdy istnieje choć jeden folder — przy braku folderów
+lista talii jest płaska, bez zbędnych nagłówków).
 
 ## Algorytm SM-2
 
