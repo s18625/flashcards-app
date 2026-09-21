@@ -17,7 +17,6 @@ export interface GlossaryEntry {
 }
 
 const MIN_TERM_LENGTH = 2;
-const MIN_TRANSLATION_LENGTH = 1;
 
 /**
  * Znajduje w linii parę "/.../ " ograniczającą transkrypcję fonetyczną.
@@ -61,7 +60,7 @@ function findPronunciationSpan(line: string): { start: number; end: number } | n
 
 function cleanTerm(raw: string): string {
   return raw
-    .replace(/^[-–—•*\d.)\s]+/, '') // wypunktowanie/numeracja z OCR na początku linii
+    .replace(/^[-–—•*=|~<>„"'.\d)\s]+/, '') // wypunktowanie/numeracja/śmieci OCR na początku linii
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -70,18 +69,44 @@ function cleanTranslation(raw: string): string {
   return raw.replace(/\s+/g, ' ').trim();
 }
 
+/**
+ * Zdjęcia gęsto zadrukowanych stron wielokolumnowych (np. słowniczek obok
+ * innej sekcji) potrafią sprawić, że Tesseract "posklei" w jedną linię OCR
+ * fragmenty z sąsiedniej kolumny - wtedy w tekście zostaje resztka kolejnej
+ * transkrypcji fonetycznej (kolejna para ukośników). Traktujemy to jako
+ * sygnał skażonych danych, bo nie da się już wiarygodnie odtworzyć, co
+ * należy do którego wpisu.
+ */
+function countSlashes(text: string): number {
+  return (text.match(/\//g) ?? []).length;
+}
+
 /** Próbuje sparsować pojedynczą linię jako wpis słowniczka. */
 export function parseGlossaryLine(line: string): GlossaryEntry | null {
   const span = findPronunciationSpan(line);
   if (!span) return null;
 
   const term = cleanTerm(line.slice(0, span.start));
-  const translation = cleanTranslation(line.slice(span.end + 1));
+  let translation = cleanTranslation(line.slice(span.end + 1));
+  // Zupełny brak treści po transkrypcji (np. "word // ") to nie jest
+  // sensowny wpis słowniczka - odrzucamy go od razu, zanim ewentualne
+  // czyszczenie skażenia (niżej) zdąży zamienić go w pusty, ale "ważny" wpis.
+  if (translation.length === 0) return null;
 
-  if (term.length < MIN_TERM_LENGTH || translation.length < MIN_TRANSLATION_LENGTH) return null;
+  if (term.length < MIN_TERM_LENGTH) return null;
   // Termin powinien wyglądać jak angielski wyraz/wyrażenie (litery/spacje/apostrofy),
   // nie sama numeracja czy śmieci OCR.
   if (!/[A-Za-z]/.test(term)) return null;
+  // Jeśli sam termin nadal zawiera resztkę cudzej transkrypcji fonetycznej,
+  // cały wpis jest zbyt skażony, żeby mu ufać.
+  if (countSlashes(term) >= 2) return null;
+
+  // Tłumaczenie z resztką sąsiedniej transkrypcji fonetycznej ("... /gao on
+  // 3 'dait/ ...") jest niewiarygodne - czyścimy je do pustego, żeby dało
+  // się je potem dociągnąć zwykłym tłumaczeniem zamiast pokazać śmieci.
+  if (countSlashes(translation) >= 2) {
+    translation = '';
+  }
 
   return { term, translation };
 }

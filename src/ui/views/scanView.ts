@@ -170,9 +170,11 @@ export async function renderScanView(container: HTMLElement, deckId: string): Pr
       word: c.word,
       translation: c.translation,
       example: '',
-      // Wpisy ze słowniczka mają tłumaczenie już gotowe z podręcznika – nie
-      // trzeba dopytywać zewnętrznego API o tłumaczenie.
-      enriching: c.source === 'lemma',
+      // Wpisy ze słowniczka zwykle mają tłumaczenie już gotowe z podręcznika
+      // i nie trzeba dopytywać zewnętrznego API - ale jeśli parser odrzucił
+      // tłumaczenie jako skażone (np. zlepek z sąsiedniej kolumny na
+      // zdjęciu), dociągamy je tak samo jak przy zwykłej ekstrakcji.
+      enriching: c.source === 'lemma' || c.translation.trim().length === 0,
       source: c.source
     }));
     if (isGlossary) {
@@ -180,7 +182,7 @@ export async function renderScanView(container: HTMLElement, deckId: string): Pr
     }
     renderCandidates(rows, deckId, isGlossary);
 
-    const toEnrich = rows.filter((r) => r.source === 'lemma');
+    const toEnrich = rows.filter((r) => r.enriching);
     if (toEnrich.length === 0) return;
 
     if (!navigator.onLine) {
