@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    name: Lint, testy i build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pobierz repozytorium
+        uses: actions/checkout@v4
+
+      - name: Ustaw Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Zainstaluj zależności
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Sprawdzenie typów
+        run: npm run typecheck
+
+      - name: Testy jednostkowe
+        run: npm test
+
+      - name: Build produkcyjny
+        run: npm run build
