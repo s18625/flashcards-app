@@ -87,6 +87,20 @@ jest zdjęcie pojedynczej kolumny na raz albo użycie metody OCR "model
 wizyjny", która rozumie układ strony znacznie lepiej niż silnik OCR oparty
 wyłącznie o rozpoznawanie znaków.
 
+Dodatkowe filtry skażonych danych w `parseGlossaryLine`:
+- termin z ukośnikiem "przyklejonym" do liter (bez spacji po obu stronach,
+  np. resztka `'s3:neim/`) zamiast czystej alternatywy `" / "` → cały wpis
+  odrzucany (nie da się już ufać nawet terminowi);
+- termin zawierający polskie znaki diakrytyczne (ą ć ę ł ń ó ś ź ż) → cały
+  wpis odrzucany (angielski termin nie powinien ich zawierać — to znak, że
+  OCR pomieszał kolumny/wiersze). To **nie jest pełny detektor języka** —
+  polski tekst bez żadnych znaków diakrytycznych (rzadziej, ale się
+  zdarza) nadal może prześlizgnąć się jako błędny "termin"; nie ma na to
+  taniego, niezawodnego algorytmicznego testu bez słownika języka
+  angielskiego, więc świadomie tego nie próbujemy rozwiązywać w 100%;
+- pojedynczy zbłąkany średnik na końcu tłumaczenia (separator z innej
+  części linii) jest obcinany.
+
 ## Tłumaczenia
 
 - Podpowiedź tłumaczenia w formularzu ręcznego dodawania fiszki oraz
