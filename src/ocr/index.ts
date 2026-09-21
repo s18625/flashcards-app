@@ -5,6 +5,7 @@ import type { OcrEngine } from './types';
 
 export * from './types';
 export * from './textProcessing';
+export * from './glossary';
 export { TesseractOcrEngine } from './tesseractEngine';
 export { VisionApiOcrEngine } from './visionEngine';
 

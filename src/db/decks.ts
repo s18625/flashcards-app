@@ -1,24 +1,31 @@
 import { getDb, newId } from './db';
 import type { Deck } from '../types';
 
+/** Talie z wersji bazy sprzed folderów nie mają pola folderId - traktujemy brak jak `null`. */
+function normalizeDeck(deck: Deck): Deck {
+  return deck.folderId === undefined ? { ...deck, folderId: null } : deck;
+}
+
 export async function listDecks(): Promise<Deck[]> {
   const db = await getDb();
   const decks = await db.getAll('decks');
-  return decks.sort((a, b) => b.updatedAt - a.updatedAt);
+  return decks.map(normalizeDeck).sort((a, b) => b.updatedAt - a.updatedAt);
 }
 
 export async function getDeck(id: string): Promise<Deck | undefined> {
   const db = await getDb();
-  return db.get('decks', id);
+  const deck = await db.get('decks', id);
+  return deck ? normalizeDeck(deck) : undefined;
 }
 
-export async function createDeck(name: string, description = ''): Promise<Deck> {
+export async function createDeck(name: string, description = '', folderId: string | null = null): Promise<Deck> {
   const db = await getDb();
   const now = Date.now();
   const deck: Deck = {
     id: newId(),
     name: name.trim(),
     description: description.trim(),
+    folderId,
     createdAt: now,
     updatedAt: now
   };
@@ -28,13 +35,13 @@ export async function createDeck(name: string, description = ''): Promise<Deck> 
 
 export async function updateDeck(
   id: string,
-  patch: Partial<Pick<Deck, 'name' | 'description'>>
+  patch: Partial<Pick<Deck, 'name' | 'description' | 'folderId'>>
 ): Promise<Deck | undefined> {
   const db = await getDb();
   const deck = await db.get('decks', id);
   if (!deck) return undefined;
   const updated: Deck = {
-    ...deck,
+    ...normalizeDeck(deck),
     ...patch,
     name: patch.name !== undefined ? patch.name.trim() : deck.name,
     updatedAt: Date.now()

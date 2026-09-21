@@ -1,7 +1,12 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
-import type { AppSettings, Card, Deck, ReviewLog } from '../types';
+import type { AppSettings, Card, Deck, Folder, ReviewLog } from '../types';
 
 interface FlashcardsDB extends DBSchema {
+  folders: {
+    key: string;
+    value: Folder;
+    indexes: { 'by-updatedAt': number };
+  };
   decks: {
     key: string;
     value: Deck;
@@ -24,7 +29,7 @@ interface FlashcardsDB extends DBSchema {
 }
 
 const DB_NAME = 'flashcards-db';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 let dbPromise: Promise<IDBPDatabase<FlashcardsDB>> | null = null;
 
@@ -48,6 +53,13 @@ export function getDb(): Promise<IDBPDatabase<FlashcardsDB>> {
         }
         if (!db.objectStoreNames.contains('settings')) {
           db.createObjectStore('settings', { keyPath: 'id' });
+        }
+        // v2: foldery do segregacji talii. Istniejące talie z wersji 1 nie
+        // mają pola folderId - traktujemy brak pola jak `null` (patrz
+        // decks.ts), więc migracja rekordów nie jest potrzebna.
+        if (!db.objectStoreNames.contains('folders')) {
+          const folders = db.createObjectStore('folders', { keyPath: 'id' });
+          folders.createIndex('by-updatedAt', 'updatedAt');
         }
       }
     });

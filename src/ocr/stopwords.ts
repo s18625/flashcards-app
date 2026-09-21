@@ -29,7 +29,11 @@ export const ENGLISH_STOPWORDS: ReadonlySet<string> = new Set([
   'ok', 'okay', 'yes', 'oh', 'hi', 'hello',
   'im', 'ive', 'dont', 'doesnt', 'didnt', 'isnt', 'arent', 'wasnt', 'werent',
   'cant', 'cannot', 'couldnt', 'wouldnt', 'shouldnt', 'wont', 'lets',
-  'et', 'al', 'etc'
+  'et', 'al', 'etc',
+  // Skróty-zastępniki używane w słownikach/podręcznikach do oznaczania
+  // miejsca na dopełnienie (somebody/something itp.) - same w sobie nie są
+  // słówkami do nauki, tylko "szablonem" wyrażenia (np. "take after sb").
+  'sb', 'sth', 'smb', 'smth'
 ]);
 
 export function isStopword(word: string): boolean {

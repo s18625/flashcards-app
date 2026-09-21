@@ -1,5 +1,5 @@
 import { cardRepo, deckRepo, settingsRepo } from '../../db';
-import { createOcrEngine, extractCandidates, OcrError, type WordCandidate } from '../../ocr';
+import { createOcrEngine, extractVocabularyCandidates, OcrError, type VocabularyCandidate } from '../../ocr';
 import { navigate } from '../../router';
 import { enrichWord } from '../../translate/translate';
 import type { Deck, PartOfSpeech } from '../../types';
@@ -15,6 +15,8 @@ interface CandidateRow {
   translation: string;
   example: string;
   enriching: boolean;
+  /** 'glossary' = tłumaczenie wzięte wprost z rozpoznanej linii podręcznika (nie z API). */
+  source: 'glossary' | 'lemma';
 }
 
 export async function renderScanView(container: HTMLElement, deckId: string): Promise<void> {
@@ -155,31 +157,41 @@ export async function renderScanView(container: HTMLElement, deckId: string): Pr
   }
 
   async function processRecognizedText(text: string): Promise<void> {
-    const found = extractCandidates(text, { limit: 60 });
+    const found = extractVocabularyCandidates(text, { limit: 60 });
     if (found.length === 0) {
       showToast('Nie znaleziono żadnych nowych słówek w rozpoznanym tekście.', 'error');
       renderPickStep();
       return;
     }
-    const rows: CandidateRow[] = found.map((c: WordCandidate, i) => ({
-      id: `${i}-${c.lemma}`,
+    const isGlossary = found[0].source === 'glossary';
+    const rows: CandidateRow[] = found.map((c: VocabularyCandidate, i) => ({
+      id: `${i}-${c.word}`,
       selected: true,
-      word: c.lemma,
-      translation: '',
+      word: c.word,
+      translation: c.translation,
       example: '',
-      enriching: true
+      // Wpisy ze słowniczka mają tłumaczenie już gotowe z podręcznika – nie
+      // trzeba dopytywać zewnętrznego API o tłumaczenie.
+      enriching: c.source === 'lemma',
+      source: c.source
     }));
-    renderCandidates(rows, deckId);
+    if (isGlossary) {
+      showToast('Wykryto listę słownictwa – wyciągnięto całe wyrażenia razem z tłumaczeniami z podręcznika.');
+    }
+    renderCandidates(rows, deckId, isGlossary);
+
+    const toEnrich = rows.filter((r) => r.source === 'lemma');
+    if (toEnrich.length === 0) return;
 
     if (!navigator.onLine) {
-      rows.forEach((r) => (r.enriching = false));
-      renderCandidates(rows, deckId);
+      toEnrich.forEach((r) => (r.enriching = false));
+      renderCandidates(rows, deckId, isGlossary);
       showToast('Brak internetu – możesz zapisać same słowa i uzupełnić tłumaczenia później.', 'info');
       return;
     }
 
     await mapWithConcurrency(
-      rows,
+      toEnrich,
       3,
       async (row) => {
         const enrichment = await enrichWord(row.word, settings);
@@ -188,12 +200,12 @@ export async function renderScanView(container: HTMLElement, deckId: string): Pr
         row.enriching = false;
         return null;
       },
-      () => renderCandidates(rows, deckId)
+      () => renderCandidates(rows, deckId, isGlossary)
     );
-    renderCandidates(rows, deckId);
+    renderCandidates(rows, deckId, isGlossary);
   }
 
-  function renderCandidates(rows: CandidateRow[], targetDeckId: string): void {
+  function renderCandidates(rows: CandidateRow[], targetDeckId: string, isGlossary: boolean): void {
     const deckSelect = h(
       'select',
       { id: 'scan-target-deck', onchange: (e: Event) => (currentTargetDeckId = (e.target as HTMLSelectElement).value) },
@@ -201,7 +213,7 @@ export async function renderScanView(container: HTMLElement, deckId: string): Pr
     ) as HTMLSelectElement;
     let currentTargetDeckId = targetDeckId;
 
-    const items = rows.map((row) => candidateItem(row, () => renderCandidates(rows, currentTargetDeckId)));
+    const items = rows.map((row) => candidateItem(row, () => renderCandidates(rows, currentTargetDeckId, isGlossary)));
 
     const selectedCount = rows.filter((r) => r.selected).length;
     const stillEnriching = rows.some((r) => r.enriching);
@@ -212,6 +224,9 @@ export async function renderScanView(container: HTMLElement, deckId: string): Pr
         'div',
         { class: 'card-surface' },
         h('div', { class: 'field' }, h('label', { for: 'scan-target-deck' }, 'Talia docelowa'), deckSelect),
+        isGlossary
+          ? h('p', { class: 'hint' }, 'Rozpoznano format listy słownictwa – tłumaczenia pochodzą z podręcznika, nie z automatycznego API.')
+          : null,
         stillEnriching ? h('p', { class: 'hint' }, 'Pobieranie tłumaczeń i przykładowych zdań…') : null
       ),
       h('div', { class: 'candidate-list mb-16' }, ...items),
