@@ -59,6 +59,31 @@ describe('parseGlossaryLine', () => {
     expect(result?.translation).not.toContain('/');
   });
 
+  it('rejects a term containing a bare (non-space-padded) slash left over from a mangled transcription', () => {
+    // Real failure observed on a photo of a single-column "Personal data" page:
+    // a badly OCR'd "family name / last name / surname /.../nazwisko" line
+    // ended up with a stray slash glued mid-term instead of clean " / " alternation.
+    expect(parseGlossaryLine("nem; la:st nem; 's3:neim/ nazwisko /ˈsɜːneɪm/ dalej")).toBeNull();
+  });
+
+  it('rejects a term written in Polish (with Polish diacritics) instead of English', () => {
+    // Real failure: OCR duplicated/garbled text so the "term" field ended up
+    // being Polish words, not an English phrase at all. Detectable whenever
+    // Polish-specific diacritics slip through (not a full language detector).
+    expect(parseGlossaryLine('kraj zamieszkania błąd /gao on 3 dait/ blady nas Cl elie a funkdin')).toBeNull();
+  });
+
+  it('accepts a clean space-padded "/" alternation inside the term without flagging it as a bare slash', () => {
+    const result = parseGlossaryLine(
+      'family name / last name / surname /ˈfæməli neɪm; lɑːst neɪm; ˈsɜːneɪm/ nazwisko'
+    );
+    expect(result).toEqual({ term: 'family name / last name / surname', translation: 'nazwisko' });
+  });
+
+  it('strips a stray trailing semicolon left by OCR noise from the translation', () => {
+    expect(parseGlossaryLine('date of birth /deɪt əv bɜːθ/ data urodzenia;')?.translation).toBe('data urodzenia');
+  });
+
   it('returns null for lines without a pronunciation delimiter', () => {
     expect(parseGlossaryLine('VOCABULARY')).toBeNull();
     expect(parseGlossaryLine('Personal data / Dane osobowe')).toBeNull();

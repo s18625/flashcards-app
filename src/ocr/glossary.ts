@@ -66,7 +66,11 @@ function cleanTerm(raw: string): string {
 }
 
 function cleanTranslation(raw: string): string {
-  return raw.replace(/\s+/g, ' ').trim();
+  return raw
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/;+$/, '') // pojedynczy średnik na końcu to zawsze śmieć OCR (separator z innej części linii), nigdy sensowne zakończenie tłumaczenia
+    .trim();
 }
 
 /**
@@ -80,6 +84,28 @@ function cleanTranslation(raw: string): string {
 function countSlashes(text: string): number {
   return (text.match(/\//g) ?? []).length;
 }
+
+/**
+ * Prawdziwe wyrażenia angielskie w tym słowniczku zapisują alternatywy z
+ * odstępami po obu stronach ukośnika ("family name / last name / surname",
+ * "similar to sb / sth"). Ukośnik "przyklejony" do liter po którejś stronie
+ * (np. "'s3:neim/ nazwisko" - resztka rozjechanej transkrypcji fonetycznej)
+ * nigdy nie występuje w prawdziwym terminie - to zawsze sygnał skażenia.
+ */
+function hasBareSlash(text: string): boolean {
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] !== '/') continue;
+    const before = text[i - 1];
+    const after = text[i + 1];
+    const spacedBefore = before === undefined || before === ' ';
+    const spacedAfter = after === undefined || after === ' ';
+    if (!spacedBefore || !spacedAfter) return true;
+  }
+  return false;
+}
+
+/** Angielski termin nie powinien zawierać polskich znaków diakrytycznych - jeśli je ma, to nie jest angielski termin. */
+const POLISH_DIACRITICS = /[ąćęłńóśźżĄĆĘŁŃÓŚŹŻ]/;
 
 /** Próbuje sparsować pojedynczą linię jako wpis słowniczka. */
 export function parseGlossaryLine(line: string): GlossaryEntry | null {
@@ -97,13 +123,20 @@ export function parseGlossaryLine(line: string): GlossaryEntry | null {
   // Termin powinien wyglądać jak angielski wyraz/wyrażenie (litery/spacje/apostrofy),
   // nie sama numeracja czy śmieci OCR.
   if (!/[A-Za-z]/.test(term)) return null;
-  // Jeśli sam termin nadal zawiera resztkę cudzej transkrypcji fonetycznej,
-  // cały wpis jest zbyt skażony, żeby mu ufać.
-  if (countSlashes(term) >= 2) return null;
+  // Angielski termin z polskimi znakami diakrytycznymi to dowód, że OCR
+  // wymieszał ze sobą fragmenty z dwóch różnych miejsc strony.
+  if (POLISH_DIACRITICS.test(term)) return null;
+  // Jeśli sam termin nadal zawiera resztkę cudzej transkrypcji fonetycznej
+  // (ukośnik "przyklejony" do liter, nie czysta alternatywa " / "), cały
+  // wpis jest zbyt skażony, żeby mu ufać.
+  if (hasBareSlash(term)) return null;
 
   // Tłumaczenie z resztką sąsiedniej transkrypcji fonetycznej ("... /gao on
   // 3 'dait/ ...") jest niewiarygodne - czyścimy je do pustego, żeby dało
   // się je potem dociągnąć zwykłym tłumaczeniem zamiast pokazać śmieci.
+  // W tłumaczeniu (po polsku) dopuszczamy natomiast ciasne "kogoś/czegoś"
+  // (naturalna polska alternatywa), sprawdzamy więc tylko pełną parę
+  // ukośników wskazującą na całą "wklejoną" transkrypcję.
   if (countSlashes(translation) >= 2) {
     translation = '';
   }
