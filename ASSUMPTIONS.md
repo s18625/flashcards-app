@@ -71,6 +71,22 @@ używane w podręcznikach jako placeholder na dopełnienie są dodane do listy
 stopwords, żeby nie pojawiały się jako osobne, bezsensowne kandydatury w
 trybie ekstrakcji zwykłego tekstu.
 
+**Znane ograniczenie: strony wielokolumnowe.** Przy zdjęciach gęsto
+zadrukowanych stron z wieloma kolumnami tekstu obok siebie (typowe dla
+repetytoriów maturalnych) Tesseract.js potrafi "posklejać" w jedną linię
+OCR fragmenty z sąsiedniej kolumny, zostawiając w tekście resztkę cudzej
+transkrypcji fonetycznej. `parseGlossaryLine` wykrywa taki przypadek
+(termin lub tłumaczenie nadal zawierające parę ukośników) i odrzuca cały
+wpis (jeśli skażony jest termin) albo czyści samo tłumaczenie do pustego
+(jeśli skażone jest tylko ono — termin zwykle da się jeszcze odczytać
+poprawnie), zamiast pokazać użytkownikowi śmieci jako "tłumaczenie z
+podręcznika". Wyczyszczone tłumaczenie jest wtedy dociągane automatycznie
+tak samo jak przy zwykłej ekstrakcji (MyMemory/AI). To łagodzi objawy, ale
+nie naprawia źródła problemu — prawdziwym rozwiązaniem dla takich stron
+jest zdjęcie pojedynczej kolumny na raz albo użycie metody OCR "model
+wizyjny", która rozumie układ strony znacznie lepiej niż silnik OCR oparty
+wyłącznie o rozpoznawanie znaków.
+
 ## Tłumaczenia
 
 - Podpowiedź tłumaczenia w formularzu ręcznego dodawania fiszki oraz

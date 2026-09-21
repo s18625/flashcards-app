@@ -33,6 +33,32 @@ describe('parseGlossaryLine', () => {
     expect(parseGlossaryLine('- go on a diet /gəʊ ɒn ə ˈdaɪət/ przejść na dietę')?.term).toBe('go on a diet');
   });
 
+  it('strips a stray leading "=" left by OCR noise', () => {
+    expect(parseGlossaryLine('= first name /ˈfɜːst neɪm/ imię')?.term).toBe('first name');
+  });
+
+  it('clears (not rejects) a translation contaminated with a leftover phonetic fragment from a neighboring column', () => {
+    // Real failure observed on a photographed 3-column textbook page: Tesseract
+    // merges text from an adjacent column into the same OCR line, leaving a
+    // stray "/pronunciation/" fragment from a *different* entry inside what
+    // would otherwise be read as the translation.
+    const result = parseGlossaryLine("gender /ˈdʒendə/ pec a ona diet /gao on 3 'dait/ przejicra");
+    expect(result).not.toBeNull();
+    expect(result?.term).toBe('gender');
+    expect(result?.translation).toBe('');
+  });
+
+  it('rejects the whole entry when even the term itself is contaminated with leftover slash fragments', () => {
+    expect(parseGlossaryLine('a/b c/d real term /ˈriəl tɜːm/ tłumaczenie')).toBeNull();
+  });
+
+  it('never lets a slash/IPA fragment leak into the translation field shown to the user', () => {
+    const result = parseGlossaryLine(
+      "marital status /ˈmærɪtəl ˈsteɪtəs/ stan cywilny. go out with sb /gəʊ aʊt wɪð ˈsʌmbədi/ umawiać się"
+    );
+    expect(result?.translation).not.toContain('/');
+  });
+
   it('returns null for lines without a pronunciation delimiter', () => {
     expect(parseGlossaryLine('VOCABULARY')).toBeNull();
     expect(parseGlossaryLine('Personal data / Dane osobowe')).toBeNull();
