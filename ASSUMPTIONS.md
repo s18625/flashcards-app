@@ -99,7 +99,17 @@ Dodatkowe filtry skażonych danych w `parseGlossaryLine`:
   taniego, niezawodnego algorytmicznego testu bez słownika języka
   angielskiego, więc świadomie tego nie próbujemy rozwiązywać w 100%;
 - pojedynczy zbłąkany średnik na końcu tłumaczenia (separator z innej
-  części linii) jest obcinany.
+  części linii) jest obcinany;
+- tłumaczenie "wklejone" do nagłówka kolejnej sekcji (np. "uparty ...
+  Interests / Zainteresowania") jest obcinane tuż przed nagłówkiem —
+  nagłówki sekcji w tym podręczniku są zawsze zapisane Wielkimi Literami
+  po obu stronach ukośnika, podczas gdy prawdziwe tłumaczenia są zawsze
+  pisane małą literą, więc to bezpieczny sygnał;
+- gdy termin i tłumaczenie zaczynają się od identycznego słowa (np. "g
+  talkative" / "g rozmowny"), to wspólne słowo jest obcinane po obu
+  stronach — angielski termin i polskie tłumaczenie z definicji nie
+  zaczynają się tym samym słowem, więc taka zgodność to zawsze zbłąkany
+  token OCR (często w miejscach z odręcznymi zaznaczeniami na zdjęciu).
 
 ## Tłumaczenia
 

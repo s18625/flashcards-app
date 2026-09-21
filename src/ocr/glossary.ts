@@ -60,17 +60,52 @@ function findPronunciationSpan(line: string): { start: number; end: number } | n
 
 function cleanTerm(raw: string): string {
   return raw
-    .replace(/^[-–—•*=|~<>„"'.\d)\s]+/, '') // wypunktowanie/numeracja/śmieci OCR na początku linii
+    .replace(/^[-–—•*=|~<>{}„"'.\d)\s]+/, '') // wypunktowanie/numeracja/śmieci OCR na początku linii
     .replace(/\s+/g, ' ')
     .trim();
 }
 
+/**
+ * Nagłówki sekcji w tym słowniczku ("Interests / Zainteresowania", "Personal
+ * data / Dane osobowe"...) są zawsze zapisane Wielkimi Literami po obu
+ * stronach ukośnika, w przeciwieństwie do prawdziwych tłumaczeń, które w tym
+ * podręczniku są zawsze pisane małą literą. Gdy taki nagłówek "wklei się" do
+ * końca tłumaczenia (OCR pomieszał wiersze), obcinamy tłumaczenie tuż przed nim.
+ */
+const HEADER_BLEED_PATTERN = /\s[A-Z][A-Za-z]*(?:\s+[A-Z][A-Za-z]*)*\s*\/\s*[A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż]*/;
+
 function cleanTranslation(raw: string): string {
-  return raw
-    .replace(/\s+/g, ' ')
+  let text = raw.replace(/\s+/g, ' ').trim();
+  const headerBleed = text.match(HEADER_BLEED_PATTERN);
+  if (headerBleed && headerBleed.index !== undefined) {
+    text = text.slice(0, headerBleed.index);
+  }
+  return text
     .trim()
     .replace(/;+$/, '') // pojedynczy średnik na końcu to zawsze śmieć OCR (separator z innej części linii), nigdy sensowne zakończenie tłumaczenia
     .trim();
+}
+
+/**
+ * Gdy termin i tłumaczenie zaczynają się od tego samego "słowa", to prawie
+ * na pewno zbłąkany token OCR doklejony identycznie po obu stronach (np.
+ * "g talkative" / "g rozmowny" zamiast "talkative" / "rozmowny") - angielski
+ * termin i polskie tłumaczenie z definicji nie zaczynają się tym samym słowem.
+ */
+function stripSharedLeadingNoise(term: string, translation: string): { term: string; translation: string } {
+  const termFirstSpace = term.indexOf(' ');
+  const translationFirstSpace = translation.indexOf(' ');
+  if (termFirstSpace === -1 || translationFirstSpace === -1) return { term, translation };
+
+  const termFirstWord = term.slice(0, termFirstSpace);
+  const translationFirstWord = translation.slice(0, translationFirstSpace);
+  if (termFirstWord.length === 0 || termFirstWord.toLowerCase() !== translationFirstWord.toLowerCase()) {
+    return { term, translation };
+  }
+  return {
+    term: term.slice(termFirstSpace + 1).trim(),
+    translation: translation.slice(translationFirstSpace + 1).trim()
+  };
 }
 
 /**
@@ -112,12 +147,14 @@ export function parseGlossaryLine(line: string): GlossaryEntry | null {
   const span = findPronunciationSpan(line);
   if (!span) return null;
 
-  const term = cleanTerm(line.slice(0, span.start));
+  let term = cleanTerm(line.slice(0, span.start));
   let translation = cleanTranslation(line.slice(span.end + 1));
   // Zupełny brak treści po transkrypcji (np. "word // ") to nie jest
   // sensowny wpis słowniczka - odrzucamy go od razu, zanim ewentualne
   // czyszczenie skażenia (niżej) zdąży zamienić go w pusty, ale "ważny" wpis.
   if (translation.length === 0) return null;
+
+  ({ term, translation } = stripSharedLeadingNoise(term, translation));
 
   if (term.length < MIN_TERM_LENGTH) return null;
   // Termin powinien wyglądać jak angielski wyraz/wyrażenie (litery/spacje/apostrofy),

@@ -84,6 +84,34 @@ describe('parseGlossaryLine', () => {
     expect(parseGlossaryLine('date of birth /deɪt əv bɜːθ/ data urodzenia;')?.translation).toBe('data urodzenia');
   });
 
+  it('truncates a translation contaminated with a bled-in section header (capitalized "X / Y")', () => {
+    // Real failure: "stubborn /ˈstʌbən/ uparty" ran into the next section's
+    // header "Interests / Zainteresowania" plus a fragment of the next entry.
+    const result = parseGlossaryLine("stubborn /ˈstʌbən/ uparty bi Interests / Zainteresowania =");
+    expect(result?.term).toBe('stubborn');
+    expect(result?.translation).not.toContain('Interests');
+    expect(result?.translation).not.toContain('Zainteresowania');
+    expect(result?.translation.startsWith('uparty')).toBe(true);
+  });
+
+  it('does not truncate a legitimate lowercase translation that happens to contain a slash', () => {
+    const result = parseGlossaryLine('similar to sb / sth /ˈsɪmɪlə tə ˈsʌmbədi, ˈsʌmθɪŋ/ podobny do kogoś/czegoś');
+    expect(result?.translation).toBe('podobny do kogoś/czegoś');
+  });
+
+  it('strips an identical stray leading word glued onto both the term and the translation', () => {
+    // Real failure observed near handwritten annotations on the photographed
+    // page: an OCR noise token ("g") ended up duplicated as a prefix on both
+    // sides of "talkative /ˈtɔːkətɪv/ rozmowny".
+    const result = parseGlossaryLine('g talkative /ˈtɔːkətɪv/ g rozmowny');
+    expect(result).toEqual({ term: 'talkative', translation: 'rozmowny' });
+  });
+
+  it('leaves term and translation alone when they do not share a leading word', () => {
+    const result = parseGlossaryLine('stupid /ˈstjuːpɪd/ głupi');
+    expect(result).toEqual({ term: 'stupid', translation: 'głupi' });
+  });
+
   it('returns null for lines without a pronunciation delimiter', () => {
     expect(parseGlossaryLine('VOCABULARY')).toBeNull();
     expect(parseGlossaryLine('Personal data / Dane osobowe')).toBeNull();
