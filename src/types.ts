@@ -1,9 +1,18 @@
 // Współdzielone typy domenowe aplikacji.
 
+export interface Folder {
+  id: string;
+  name: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
 export interface Deck {
   id: string;
   name: string;
   description: string;
+  /** Opcjonalny folder służący do segregacji talii; null = bez folderu. */
+  folderId: string | null;
   createdAt: number;
   updatedAt: number;
 }

@@ -1,8 +1,11 @@
-import { deckRepo } from '../../db';
+import { deckRepo, folderRepo } from '../../db';
 import { navigate } from '../../router';
 import { h, mount } from '../dom';
 import { setTopbar } from '../shell';
 import { showToast } from '../toast';
+import type { Folder } from '../../types';
+
+const NEW_FOLDER_VALUE = '__new__';
 
 export async function renderDeckFormView(container: HTMLElement, deckId?: string): Promise<void> {
   const editing = Boolean(deckId);
@@ -14,6 +17,9 @@ export async function renderDeckFormView(container: HTMLElement, deckId?: string
   }
 
   setTopbar({ title: editing ? 'Edytuj talię' : 'Nowa talia', backPath: editing ? `/decks/${deckId}` : '/decks' });
+
+  let folders = await folderRepo.listFolders();
+  let selectedFolderId: string | null = existing?.folderId ?? null;
 
   const nameInput = h('input', {
     type: 'text',
@@ -31,6 +37,38 @@ export async function renderDeckFormView(container: HTMLElement, deckId?: string
   }) as HTMLTextAreaElement;
   descInput.value = existing?.description ?? '';
 
+  const folderFieldContainer = h('div', { class: 'field' }) as HTMLDivElement;
+
+  function renderFolderField(): void {
+    const select = h(
+      'select',
+      {
+        id: 'deck-folder',
+        onchange: async (e: Event) => {
+          const value = (e.target as HTMLSelectElement).value;
+          if (value === NEW_FOLDER_VALUE) {
+            const name = window.prompt('Nazwa nowego folderu:');
+            if (name && name.trim()) {
+              const folder = await folderRepo.createFolder(name.trim());
+              folders = await folderRepo.listFolders();
+              selectedFolderId = folder.id;
+            } else {
+              selectedFolderId = existing?.folderId ?? null;
+            }
+          } else {
+            selectedFolderId = value || null;
+          }
+          renderFolderField();
+        }
+      },
+      h('option', { value: '', selected: selectedFolderId === null }, '— bez folderu —'),
+      ...folders.map((f: Folder) => h('option', { value: f.id, selected: f.id === selectedFolderId }, f.name)),
+      h('option', { value: NEW_FOLDER_VALUE }, '+ Nowy folder…')
+    );
+    mount(folderFieldContainer, h('label', { for: 'deck-folder' }, 'Folder (opcjonalnie)'), select);
+  }
+  renderFolderField();
+
   const form = h(
     'form',
     {
@@ -44,11 +82,11 @@ export async function renderDeckFormView(container: HTMLElement, deckId?: string
           return;
         }
         if (editing && deckId) {
-          await deckRepo.updateDeck(deckId, { name, description: descInput.value.trim() });
+          await deckRepo.updateDeck(deckId, { name, description: descInput.value.trim(), folderId: selectedFolderId });
           showToast('Talia zapisana.');
           navigate(`/decks/${deckId}`);
         } else {
-          const deck = await deckRepo.createDeck(name, descInput.value.trim());
+          const deck = await deckRepo.createDeck(name, descInput.value.trim(), selectedFolderId);
           showToast('Talia utworzona.');
           navigate(`/decks/${deck.id}`);
         }
@@ -56,6 +94,7 @@ export async function renderDeckFormView(container: HTMLElement, deckId?: string
     },
     h('div', { class: 'field' }, h('label', { for: 'deck-name' }, 'Nazwa talii'), nameInput),
     h('div', { class: 'field' }, h('label', { for: 'deck-desc' }, 'Opis (opcjonalnie)'), descInput),
+    folderFieldContainer,
     h('button', { type: 'submit', class: 'btn btn-primary btn-block' }, editing ? 'Zapisz zmiany' : 'Utwórz talię')
   );
 
