@@ -1,6 +1,6 @@
-import { cardRepo } from '../../db';
+import { cardRepo, settingsRepo } from '../../db';
 import { navigate } from '../../router';
-import { suggestTranslation } from '../../translate/translate';
+import { enrichWord } from '../../translate/translate';
 import type { PartOfSpeech } from '../../types';
 import { h, icon, mount } from '../dom';
 import { setTopbar } from '../shell';
@@ -26,6 +26,8 @@ export async function renderCardFormView(container: HTMLElement, deckId: string,
   }
 
   setTopbar({ title: editing ? 'Edytuj fiszkę' : 'Nowa fiszka', backPath: `/decks/${deckId}` });
+
+  const settings = await settingsRepo.getSettings();
 
   const wordInput = h('input', {
     type: 'text',
@@ -75,21 +77,27 @@ export async function renderCardFormView(container: HTMLElement, deckId: string,
     }
     debounceTimer = window.setTimeout(async () => {
       mount(suggestionHint, 'Szukam podpowiedzi tłumaczenia…');
-      const suggestion = await suggestTranslation(word);
-      if (!suggestion || wordInput.value.trim() !== word) {
+      // enrichWord korzysta z modelu AI (jeśli skonfigurowano klucz w Ustawieniach) –
+      // znacznie trafniej niż MyMemory radzi sobie z wyrażeniami wieloczłonowymi
+      // i idiomami (np. "take after sb", "put up with sth").
+      const enrichment = await enrichWord(word, settings);
+      if (!enrichment.translation || wordInput.value.trim() !== word) {
         mount(suggestionHint);
         return;
       }
       mount(
         suggestionHint,
-        `Podpowiedź: ${suggestion} `,
+        `Podpowiedź: ${enrichment.translation} `,
         h(
           'button',
           {
             type: 'button',
             class: 'btn btn-sm btn-outline',
             onclick: () => {
-              translationInput.value = suggestion;
+              translationInput.value = enrichment.translation;
+              if (!exampleInput.value.trim() && enrichment.example) {
+                exampleInput.value = enrichment.example;
+              }
               mount(suggestionHint);
             }
           },

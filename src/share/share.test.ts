@@ -16,7 +16,7 @@ import {
 import type { Card, Deck, SharePayload } from '../types';
 
 function makeDeck(overrides: Partial<Deck> = {}): Deck {
-  return { id: 'd1', name: 'Kuchnia', description: 'Słówka kuchenne', createdAt: 1, updatedAt: 1, ...overrides };
+  return { id: 'd1', name: 'Kuchnia', description: 'Słówka kuchenne', folderId: null, createdAt: 1, updatedAt: 1, ...overrides };
 }
 
 function makeCard(overrides: Partial<Card> = {}): Card {
