@@ -74,13 +74,50 @@ function cleanTerm(raw: string): string {
  */
 const HEADER_BLEED_PATTERN = /\s[A-Z][A-Za-z]*(?:\s+[A-Z][A-Za-z]*)*\s*\/\s*[A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż]*/;
 
+/** Znaki, które nigdy nie występują w prawdziwym polskim tłumaczeniu w tym słowniczku - tylko w śmieciach OCR (nawiasy kwadratowe/klamrowe, znak równości itp.). */
+const NOISE_CHAR_PATTERN = /[[\]{}=<>|~]/;
+
+/**
+ * Apostrof bezpośrednio przed literą (np. "a'bavt", "'sxmin") to niemal
+ * zawsze resztka źle odczytanego znaku akcentu ˈ z transkrypcji fonetycznej,
+ * nie coś, co pojawia się w prawdziwym polskim tłumaczeniu w tym słowniczku.
+ */
+const STRESS_MARK_PATTERN = /'[a-zA-Z]/;
+
+/**
+ * Wyszukuje najwcześniejszy punkt w tekście, w którym zaczyna się dowolny
+ * ze znanych wzorców skażenia, i obcina tekst tuż przed nim. Szukamy
+ * najwcześniejszego (a nie stosujemy wzorców po kolei), żeby wynik nie
+ * zależał od przypadkowej kolejności sprawdzania.
+ */
+function truncateAtFirstContamination(text: string): string {
+  const candidates = [text.match(HEADER_BLEED_PATTERN)?.index, text.search(NOISE_CHAR_PATTERN), text.search(STRESS_MARK_PATTERN)]
+    .filter((idx): idx is number => idx !== undefined && idx >= 0);
+  if (candidates.length === 0) return text;
+  return text.slice(0, Math.min(...candidates));
+}
+
+/** Tylko normalizacja białych znaków - bez usuwania skażenia (to osobny krok, patrz `sanitizeTranslation`). */
 function cleanTranslation(raw: string): string {
-  let text = raw.replace(/\s+/g, ' ').trim();
-  const headerBleed = text.match(HEADER_BLEED_PATTERN);
-  if (headerBleed && headerBleed.index !== undefined) {
-    text = text.slice(0, headerBleed.index);
-  }
-  return text
+  return raw.replace(/\s+/g, ' ').trim();
+}
+
+/** Prawdziwe tłumaczenia w tym słowniczku są zawsze pisane małą literą - wielka litera na początku to sygnał podstawionej, niepowiązanej treści. */
+const STARTS_WITH_UPPERCASE = /^[A-ZĄĆĘŁŃÓŚŹŻ]/;
+
+/**
+ * Usuwa znane wzorce skażenia z już znormalizowanego tłumaczenia: obcina
+ * tekst tuż przed pierwszym wystąpieniem dowolnego z nich, a jeśli całe
+ * tłumaczenie zaczyna się wielką literą (nigdy nie zdarza się to w
+ * prawdziwych tłumaczeniach w tym słowniczku), czyści je do pustego.
+ * Wynik może być pusty - to sygnał, że warto dociągnąć tłumaczenie
+ * automatycznie, a nie że cały wpis (razem z terminem) jest bezwartościowy.
+ */
+function sanitizeTranslation(translation: string): string {
+  if (STARTS_WITH_UPPERCASE.test(translation)) return '';
+
+  const truncated = truncateAtFirstContamination(translation);
+  return truncated
     .trim()
     .replace(/;+$/, '') // pojedynczy średnik na końcu to zawsze śmieć OCR (separator z innej części linii), nigdy sensowne zakończenie tłumaczenia
     .trim();
@@ -173,9 +210,19 @@ export function parseGlossaryLine(line: string): GlossaryEntry | null {
   // się je potem dociągnąć zwykłym tłumaczeniem zamiast pokazać śmieci.
   // W tłumaczeniu (po polsku) dopuszczamy natomiast ciasne "kogoś/czegoś"
   // (naturalna polska alternatywa), sprawdzamy więc tylko pełną parę
-  // ukośników wskazującą na całą "wklejoną" transkrypcję.
+  // ukośników wskazującą na całą "wklejoną" transkrypcję. Sprawdzamy to
+  // PRZED dalszym, drobniejszym czyszczeniem niżej, bo ono obcinałoby
+  // tekst tuż przed resztką akcentu wewnątrz pary i "zjadałoby" jeden z
+  // dwóch ukośników, przez co ta prostsza para nigdy by się nie wyłapała.
   if (countSlashes(translation) >= 2) {
     translation = '';
+  } else {
+    // Usuwa dalsze, drobniejsze wzorce skażenia tłumaczenia: nagłówek
+    // sekcji, znaki-śmieci OCR, samotną resztkę znaku akcentu, tłumaczenie
+    // zaczynające się wielką literą (podstawiona, niepowiązana treść).
+    // Wynik bywa pusty - to sygnał do automatycznego dociągnięcia, a nie
+    // do odrzucenia całego wpisu razem z (wciąż poprawnym) terminem.
+    translation = sanitizeTranslation(translation);
   }
 
   return { term, translation };
