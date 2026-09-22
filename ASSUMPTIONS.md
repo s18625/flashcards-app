@@ -109,7 +109,30 @@ Dodatkowe filtry skażonych danych w `parseGlossaryLine`:
   talkative" / "g rozmowny"), to wspólne słowo jest obcinane po obu
   stronach — angielski termin i polskie tłumaczenie z definicji nie
   zaczynają się tym samym słowem, więc taka zgodność to zawsze zbłąkany
-  token OCR (często w miejscach z odręcznymi zaznaczeniami na zdjęciu).
+  token OCR (często w miejscach z odręcznymi zaznaczeniami na zdjęciu);
+- tłumaczenie zaczynające się wielką literą jest czyszczone do pustego —
+  wszystkie prawdziwe tłumaczenia w tym słowniczku są pisane małą literą,
+  więc wielka litera na początku to sygnał całkowicie podstawionej,
+  niepowiązanej treści (zaobserwowane: "(in)tolerant" dostało tłumaczenie
+  "Brak tolerancji" zamiast "(nie)tolerancyjny" — treść wygląda
+  wiarygodnie, ale jest błędna; nie da się tego wykryć inaczej niż po
+  wielkości litery, bo brakuje tu jakiegokolwiek innego sygnału skażenia
+  typu ukośnik czy nawias);
+- tłumaczenie jest obcinane tuż przed pierwszym znakiem-śmieciem OCR
+  (`[ ] { } = < > | ~`), który nigdy nie występuje w prawdziwym polskim
+  tłumaczeniu w tym słowniczku;
+- tłumaczenie jest obcinane tuż przed samotnym apostrofem-przed-literą
+  (np. "a'bavt") nawet bez pełnej pary ukośników — to niemal zawsze
+  resztka źle odczytanego znaku akcentu ˈ z transkrypcji fonetycznej.
+
+Mimo tych kolejnych filtrów **nie ma gwarancji 100% czystości** —
+niektóre linie wychodzą z OCR jako bełkot bez żadnego z powyższych
+sygnałów (błędne, ale poprawnie wyglądające słowa, literówki pojedynczych
+znaków w środku poprawnego tekstu itp.). To fundamentalne ograniczenie
+jakości rozpoznawania znaków na trudnych/drobno zadrukowanych zdjęciach,
+którego nie da się w pełni rozwiązać samą walidacją tekstu wyjściowego.
+Przy słabych zdjęciach zdecydowanie polecana jest metoda OCR "model
+wizyjny" (LLM) w Ustawieniach zamiast Tesseract.js.
 
 ## Tłumaczenia
 

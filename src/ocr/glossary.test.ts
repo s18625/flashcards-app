@@ -107,6 +107,44 @@ describe('parseGlossaryLine', () => {
     expect(result).toEqual({ term: 'talkative', translation: 'rozmowny' });
   });
 
+  it('clears a translation that starts with an uppercase letter (substituted, unrelated content)', () => {
+    // Real failure: "(in)tolerant /.../ (nie)tolerancyjny" came back as
+    // "Brak tolerancji" - plausible-looking but entirely wrong Polish text.
+    // Every legitimate translation in this glossary is lowercase, so a
+    // capitalized translation is a reliable signal of substituted content.
+    const result = parseGlossaryLine('(intolerant /(ɪn)ˈtɒlərənt/ Brak tolerancji');
+    expect(result?.term).toBe('(intolerant');
+    expect(result?.translation).toBe('');
+  });
+
+  it('clears another real example of capitalized substituted content', () => {
+    const result = parseGlossaryLine('big-head /ˈbɪɡhed/ Choroba Recklinghausena kości');
+    expect(result?.translation).toBe('');
+  });
+
+  it('truncates a translation at stray OCR noise characters like [ ] { } = < > | ~', () => {
+    // Real failure: "ambitious /.../ ambitny" gained trailing garbage with
+    // bracket/brace/equals characters that never appear in a real translation.
+    const result = parseGlossaryLine('ambitious /æmˈbɪʃəs/ ambitny i [i{=REIEZEROS y ec es');
+    expect(result?.translation).toBe('ambitny i');
+    expect(result?.translation).not.toMatch(/[[\]{}=<>|~]/);
+  });
+
+  it('truncates a translation at a lone leftover stress-mark fragment even without a full slash pair', () => {
+    // Real failure: "blunt /.../ obcesowy, bezpośredni" gained a trailing
+    // mangled pronunciation fragment ending in a single unpaired slash -
+    // too few slashes (1) to trip the "full pair" check, but the stray
+    // apostrophe-before-letter is still a reliable contamination signal.
+    const result = parseGlossaryLine("blunt /blʌnt/ obeesowy, bezposredni a'bavt 'sxmin/");
+    expect(result?.translation).toBe('obeesowy, bezposredni a');
+    expect(result?.translation).not.toContain('/');
+  });
+
+  it('does not clear a legitimate lowercase translation just because it contains an apostrophe-free normal word', () => {
+    const result = parseGlossaryLine('stupid /ˈstjuːpɪd/ głupi');
+    expect(result?.translation).toBe('głupi');
+  });
+
   it('leaves term and translation alone when they do not share a leading word', () => {
     const result = parseGlossaryLine('stupid /ˈstjuːpɪd/ głupi');
     expect(result).toEqual({ term: 'stupid', translation: 'głupi' });
