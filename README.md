@@ -9,7 +9,10 @@ Interfejs jest po polsku, nauczane słownictwo jest angielskie.
 
 - **Talie i fiszki** – tworzenie, edycja i usuwanie talii oraz fiszek
   (słowo angielskie, tłumaczenie polskie, przykładowe zdanie, część mowy,
-  notatka). Ręczne dodawanie z podpowiedzią tłumaczenia w locie.
+  notatka). Ręczne dodawanie z podpowiedzią tłumaczenia w locie, albo
+  masowe dodawanie wielu fiszek naraz – wklej listę w formacie
+  „słowo, tłumaczenie” (jedna fiszka na linię; tłumaczenie można pominąć
+  i dociągnąć automatycznie), z podglądem i edycją przed zapisem.
 - **Dodawanie słówek ze zdjęcia** – zrób zdjęcie (aparat) lub wybierz z
   galerii, aplikacja rozpoznaje tekst (OCR), wyodrębnia unikalne słowa
   (pomijając liczby, znaki specjalne i bardzo popularne słowa, z

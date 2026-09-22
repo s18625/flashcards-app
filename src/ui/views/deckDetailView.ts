@@ -39,7 +39,8 @@ export async function renderDeckDetailView(container: HTMLElement, deckId: strin
     { class: 'row row-wrap mb-16' },
     h('button', { class: 'btn btn-primary', onclick: () => navigate(`/decks/${deckId}/study`) }, icon('graduate'), 'Ucz się'),
     h('button', { class: 'btn btn-outline', onclick: () => navigate(`/decks/${deckId}/scan`) }, icon('camera'), 'Dodaj ze zdjęcia'),
-    h('button', { class: 'btn btn-outline', onclick: () => navigate(`/decks/${deckId}/cards/new`) }, icon('plus'), 'Dodaj ręcznie')
+    h('button', { class: 'btn btn-outline', onclick: () => navigate(`/decks/${deckId}/cards/new`) }, icon('plus'), 'Dodaj ręcznie'),
+    h('button', { class: 'btn btn-outline', onclick: () => navigate(`/decks/${deckId}/cards/bulk`) }, icon('upload'), 'Dodaj wiele naraz')
   );
 
   if (deck.description) {
@@ -54,7 +55,12 @@ export async function renderDeckDetailView(container: HTMLElement, deckId: strin
         'div',
         { class: 'empty-state' },
         h('p', null, 'Ta talia nie ma jeszcze żadnych fiszek.'),
-        h('button', { class: 'btn btn-primary', onclick: () => navigate(`/decks/${deckId}/cards/new`) }, 'Dodaj pierwszą fiszkę')
+        h(
+          'div',
+          { class: 'row row-wrap', style: 'justify-content:center' },
+          h('button', { class: 'btn btn-primary', onclick: () => navigate(`/decks/${deckId}/cards/new`) }, 'Dodaj pierwszą fiszkę'),
+          h('button', { class: 'btn btn-outline', onclick: () => navigate(`/decks/${deckId}/cards/bulk`) }, 'Dodaj wiele naraz')
+        )
       )
     );
     return;
