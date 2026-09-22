@@ -26,6 +26,7 @@ async function bootstrap(): Promise<void> {
   registerRoute('/decks/:id/share', (p) => void import('./ui/views/shareView').then((m) => m.renderShareView(getViewContainer(), p.id)));
   registerRoute('/decks/:id/study', (p) => void import('./ui/views/studySessionView').then((m) => m.renderStudySessionView(getViewContainer(), p.id)));
   registerRoute('/decks/:id/cards/new', (p) => void import('./ui/views/cardFormView').then((m) => m.renderCardFormView(getViewContainer(), p.id)));
+  registerRoute('/decks/:id/cards/bulk', (p) => void import('./ui/views/bulkAddView').then((m) => m.renderBulkAddView(getViewContainer(), p.id)));
   registerRoute('/decks/:id/cards/:cardId/edit', (p) =>
     void import('./ui/views/cardFormView').then((m) => m.renderCardFormView(getViewContainer(), p.id, p.cardId))
   );
