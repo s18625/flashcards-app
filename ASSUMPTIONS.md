@@ -261,6 +261,28 @@ Kliknięcie wyniku prowadzi wprost do edycji tej fiszki, z widoczną nazwą
 talii, do której należy — przydatne zwłaszcza przy wielu taliach, kiedy
 nie pamięta się, gdzie dane słówko zostało zapisane.
 
+## Wirtualna talia „Trudne słówka”
+
+`src/study/difficult.ts` (`selectDifficultCards`, pokryte testami) wybiera
+karty ze **wszystkich talii naraz** na podstawie historii powtórek, a nie
+bieżącego stanu SM-2: dla każdej karty liczy ważony wskaźnik trudności z
+logu powtórek — ocena „Nie pamiętam” liczy się jako 1, „Trudne” jako 0,5,
+„Dobrze”/„Łatwo” jako 0 — i kwalifikuje kartę, jeśli ma co najmniej 2
+powtórki w historii oraz wskaźnik ≥ 0,34 (czyli z grubsza: częściej niż co
+trzecia powtórka to „Nie pamiętam”, albo odpowiednik w „Trudnych”).
+Wyniki są sortowane od najtrudniejszej, ograniczone do 50 kart. Nowe,
+nigdy niepowtarzane karty nigdy się nie kwalifikują — na ich temat nie ma
+jeszcze żadnego sygnału.
+
+Sesja nauki dla tej wirtualnej talii (`/study/difficult`, przycisk „Trudne
+słówka” na ekranie wyboru trybu nauki) celowo **ignoruje** bieżący
+`dueDate` karty w SM-2 oraz dzienne limity nowych/powtórek — to
+dobrowolny, dodatkowy trening wybranych trudnych słówek, niezależny od
+normalnej kolejki powtórek, a nie jej część. Ocena karty w tej sesji nadal
+normalnie aktualizuje jej stan SM-2 i loguje powtórkę, więc regularne
+ćwiczenie w tym trybie realnie poprawia współczynnik łatwości karty i może
+z czasem wypaść z listy trudnych słówek.
+
 ## Dzienne limity
 
 - Limit **nowych kart dziennie** liczony jest dokładnie na podstawie

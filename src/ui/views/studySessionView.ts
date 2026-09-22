@@ -2,6 +2,7 @@ import { cardRepo, reviewRepo, settingsRepo } from '../../db';
 import { navigate } from '../../router';
 import { nextSrsState } from '../../srs/sm2';
 import { findClozeBlank } from '../../study/cloze';
+import { selectDifficultCards } from '../../study/difficult';
 import { buildQuizOptions } from '../../study/quiz';
 import type { Card, ReviewGrade } from '../../types';
 import { h, icon, mount } from '../dom';
@@ -17,20 +18,30 @@ const GRADE_BUTTONS: { grade: ReviewGrade; label: string; className: string }[] 
 ];
 
 export async function renderStudySessionView(container: HTMLElement, scope: string): Promise<void> {
-  const backPath = scope === 'all' ? '/study' : `/decks/${scope}`;
-  setTopbar({ title: 'Sesja nauki', backPath });
+  const isDifficult = scope === 'difficult';
+  const backPath = scope === 'all' || isDifficult ? '/study' : `/decks/${scope}`;
+  setTopbar({ title: isDifficult ? 'Trudne słówka' : 'Sesja nauki', backPath });
   mount(container, h('div', { class: 'spinner' }));
 
   const settings = await settingsRepo.getSettings();
-  const deckIds = scope === 'all' ? null : [scope];
 
-  const newDoneToday = await reviewRepo.countNewCardsStudiedToday();
-  const totalDoneToday = await reviewRepo.countReviewsToday();
-  const reviewDoneToday = Math.max(0, totalDoneToday - newDoneToday);
-  const newRemaining = Math.max(0, settings.dailyNewCardsLimit - newDoneToday);
-  const reviewRemaining = Math.max(0, settings.dailyReviewLimit - reviewDoneToday);
-
-  const queue = await cardRepo.getSessionQueue(deckIds, newRemaining, reviewRemaining);
+  let queue: Card[];
+  if (isDifficult) {
+    // Wirtualna talia "Trudne słówka": karty wybrane na podstawie historii
+    // powtórek (częste "Nie pamiętam"/"Trudne"), niezależnie od tego, czy są
+    // aktualnie "due" wg SM-2 i bez wliczania w dzienne limity — to
+    // dodatkowy, dobrowolny trening, a nie część normalnej kolejki.
+    const [allCards, allLogs] = await Promise.all([cardRepo.getAllCards(), reviewRepo.getAllReviews()]);
+    queue = selectDifficultCards(allCards, allLogs);
+  } else {
+    const deckIds = scope === 'all' ? null : [scope];
+    const newDoneToday = await reviewRepo.countNewCardsStudiedToday();
+    const totalDoneToday = await reviewRepo.countReviewsToday();
+    const reviewDoneToday = Math.max(0, totalDoneToday - newDoneToday);
+    const newRemaining = Math.max(0, settings.dailyNewCardsLimit - newDoneToday);
+    const reviewRemaining = Math.max(0, settings.dailyReviewLimit - reviewDoneToday);
+    queue = await cardRepo.getSessionQueue(deckIds, newRemaining, reviewRemaining);
+  }
 
   if (queue.length === 0) {
     mount(
@@ -39,8 +50,14 @@ export async function renderStudySessionView(container: HTMLElement, scope: stri
         'div',
         { class: 'empty-state' },
         icon('graduate'),
-        h('h2', null, 'Brak kart do powtórki'),
-        h('p', null, 'Wszystko powtórzone albo osiągnięto dzienny limit. Zajrzyj później lub zmień limity w Ustawieniach.'),
+        h('h2', null, isDifficult ? 'Brak trudnych słówek' : 'Brak kart do powtórki'),
+        h(
+          'p',
+          null,
+          isDifficult
+            ? 'Nie masz jeszcze żadnych słówek, które regularnie sprawiają Ci trudność. Ucz się dalej — te, które często oceniasz jako „Nie pamiętam” albo „Trudne”, pojawią się tutaj automatycznie.'
+            : 'Wszystko powtórzone albo osiągnięto dzienny limit. Zajrzyj później lub zmień limity w Ustawieniach.'
+        ),
         h('button', { class: 'btn btn-primary', onclick: () => navigate(backPath) }, 'Wróć')
       )
     );
