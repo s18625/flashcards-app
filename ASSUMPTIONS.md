@@ -245,6 +245,22 @@ identycznie dla dotyku i myszki. Szczegóły:
   pionowego przesuwania (Łatwo/Trudne), które inaczej kolidowałoby z
   natywnym scrollem przeglądarki na telefonie.
 
+## Wyszukiwarka fiszek
+
+`src/search/search.ts` (`cardMatchesQuery`/`searchCards`, pokryte testami)
+to czysta funkcja filtrująca po polach słowo/tłumaczenie/przykład/notatka,
+case-insensitive substring match — bez zewnętrznego indeksu wyszukiwania
+(niepotrzebny przy typowej skali danych lokalnej aplikacji offline-first).
+Widok (`src/ui/views/searchView.ts`) pobiera **wszystkie** fiszki ze
+wszystkich talii raz przy wejściu na ekran i filtruje w pamięci przy każdym
+wpisanym znaku — wystarczająco szybkie bez debounce przy realistycznej
+liczbie fiszek w tej aplikacji. Lista wyników jest ograniczona do 100
+pozycji (z komunikatem o obcięciu) jako prosty zabezpiecznik przed
+wyrenderowaniem tysięcy elementów DOM naraz przy bardzo dużej kolekcji.
+Kliknięcie wyniku prowadzi wprost do edycji tej fiszki, z widoczną nazwą
+talii, do której należy — przydatne zwłaszcza przy wielu taliach, kiedy
+nie pamięta się, gdzie dane słówko zostało zapisane.
+
 ## Dzienne limity
 
 - Limit **nowych kart dziennie** liczony jest dokładnie na podstawie

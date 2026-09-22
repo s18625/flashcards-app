@@ -30,6 +30,9 @@ Interfejs jest po polsku, nauczane słownictwo jest angielskie.
     podręcznika, zamiast rozbijać je na pojedyncze słowa.
 - **Foldery** – opcjonalne grupowanie talii w foldery, żeby łatwiej
   segregować większą liczbę talii tematycznie.
+- **Wyszukiwarka** – szukanie fiszek jednocześnie po wszystkich taliach
+  (słowo, tłumaczenie, przykładowe zdanie, notatka), z podglądem talii, do
+  której należy wynik, i szybkim przejściem do edycji.
 - **Nauka** – powtórki algorytmem **SM-2**, oceny Nie pamiętam / Trudne /
   Dobrze / Łatwo, kierunek EN→PL lub PL→EN, konfigurowalne dzienne limity
   nowych kart i powtórek, wymowa przez Web Speech API. Pięć trybów sesji:
@@ -98,7 +101,8 @@ Testy jednostkowe (Vitest) pokrywają m.in.:
   błędne i złośliwe dane wejściowe (`src/share/share.test.ts`),
 - eksport/import CSV (`src/share/csv.test.ts`),
 - losowanie opcji quizu (`src/study/quiz.test.ts`) i wyszukiwanie luki w
-  zdaniu dla trybu cloze (`src/study/cloze.test.ts`).
+  zdaniu dla trybu cloze (`src/study/cloze.test.ts`),
+- dopasowywanie fiszek do zapytania w wyszukiwarce (`src/search/search.test.ts`).
 
 ## Lint i typy
 

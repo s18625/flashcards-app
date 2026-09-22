@@ -18,6 +18,7 @@ async function bootstrap(): Promise<void> {
   // zależności (np. tesseract.js używane tylko w skanowaniu zdjęć) trafiają
   // do osobnych fragmentów kodu wczytywanych dopiero, gdy są potrzebne.
   registerRoute('/decks', () => void import('./ui/views/decksView').then((m) => m.renderDecksView(getViewContainer())));
+  registerRoute('/search', () => void import('./ui/views/searchView').then((m) => m.renderSearchView(getViewContainer())));
   registerRoute('/decks/new', () => void import('./ui/views/deckFormView').then((m) => m.renderDeckFormView(getViewContainer())));
   registerRoute('/decks/import', () => void import('./ui/views/importView').then((m) => m.renderImportPickerView(getViewContainer())));
   registerRoute('/decks/import-preview', () => void import('./ui/views/importView').then((m) => m.renderImportPreviewView(getViewContainer())));

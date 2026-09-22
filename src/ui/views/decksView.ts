@@ -9,6 +9,7 @@ export async function renderDecksView(container: HTMLElement): Promise<void> {
   setTopbar({
     title: 'Fiszki – Talie',
     actions: [
+      h('button', { class: 'icon-button', 'aria-label': 'Szukaj fiszek', onclick: () => navigate('/search') }, icon('search')),
       h('button', { class: 'icon-button', 'aria-label': 'Importuj talię', onclick: () => navigate('/decks/import') }, icon('upload'))
     ]
   });
