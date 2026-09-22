@@ -43,6 +43,12 @@ Interfejs jest po polsku, nauczane słownictwo jest angielskie.
   wszystkich talii, które historycznie najczęściej były oceniane jako „Nie
   pamiętam”/„Trudne”, do dodatkowego treningu niezależnego od normalnej
   kolejki powtórek i dziennych limitów.
+- **Przypomnienia o nauce** – baner na liście talii, gdy danego dnia nie
+  było jeszcze żadnej powtórki, plus opcjonalne (wymaga zgody), best-effort
+  powiadomienie przeglądarki. Bez własnego backendu nie ma możliwości
+  wysłania powiadomienia, gdy aplikacja jest całkiem zamknięta — baner w
+  aplikacji jest jedynym w pełni niezawodnym mechanizmem (patrz
+  `ASSUMPTIONS.md`).
 - **Nauka** – powtórki algorytmem **SM-2**, oceny Nie pamiętam / Trudne /
   Dobrze / Łatwo, kierunek EN→PL lub PL→EN, konfigurowalne dzienne limity
   nowych kart i powtórek, wymowa przez Web Speech API. Pięć trybów sesji:
@@ -114,7 +120,8 @@ Testy jednostkowe (Vitest) pokrywają m.in.:
   zdaniu dla trybu cloze (`src/study/cloze.test.ts`),
 - dopasowywanie fiszek do zapytania w wyszukiwarce (`src/search/search.test.ts`),
 - wybór kart do wirtualnej talii „Trudne słówka” na podstawie historii
-  powtórek (`src/study/difficult.test.ts`).
+  powtórek (`src/study/difficult.test.ts`),
+- logikę decyzyjną przypomnień o nauce (`src/reminders/reminders.test.ts`).
 
 ## Lint i typy
 
@@ -189,6 +196,10 @@ na `/<nazwa-repozytorium>/`, więc nie trzeba nic zmieniać w kodzie.
 - Brak synchronizacji między urządzeniami — dane są lokalne dla
   przeglądarki/urządzenia; jedynym sposobem przenoszenia talii jest ręczne
   udostępnianie (link/plik/QR).
+- Powiadomienia przeglądarki o braku dzisiejszej nauki działają tylko, gdy
+  aplikacja jest otwarta — bez własnego backendu (serwera Web Push) nie da
+  się wysłać powiadomienia, gdy aplikacja jest całkiem zamknięta (patrz
+  `ASSUMPTIONS.md`). Baner w aplikacji nie ma tego ograniczenia.
 
 ## Pomysły na rozwój
 

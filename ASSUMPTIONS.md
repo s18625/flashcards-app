@@ -315,6 +315,42 @@ decyzje:
   potrafią być duże, a talia jest myślana jako udostępnianie *słownictwa*,
   nie prywatnych zdjęć/plików z urządzenia użytkownika.
 
+## Przypomnienia o codziennej nauce
+
+Dwa niezależnie włączane mechanizmy (`src/reminders/reminders.ts` – czysta
+logika decyzyjna z testami; `src/ui/reminderBanner.ts` – integracja z
+przeglądarką/DOM):
+
+- **Baner w aplikacji** (domyślnie włączony) – gdy dzisiaj nie było
+  jeszcze żadnej powtórki, na liście talii pojawia się baner z przyciskiem
+  „Ucz się teraz”. To **niezawodny** mechanizm, bo działa w 100% lokalnie
+  przy każdym otwarciu aplikacji, bez żadnych uprawnień przeglądarki.
+  Zamknięcie banera chowa go tylko do końca bieżącej sesji karty (zmienna
+  w pamięci, nie w bazie) – po ponownym otwarciu aplikacji następnego dnia
+  (albo po prostym odświeżeniu tego samego dnia) baner może się pojawić
+  znowu, jeśli wciąż nie było powtórki.
+- **Powiadomienie przeglądarki** (domyślnie wyłączone, wymaga jawnej zgody
+  w Ustawieniach przez `Notification.requestPermission()`) – **best-effort,
+  z istotnym ograniczeniem, które trzeba jasno powiedzieć**: ta aplikacja
+  nie ma własnego backendu ani serwera push, więc **nie ma możliwości
+  wysłania powiadomienia, gdy aplikacja jest całkowicie zamknięta**
+  (żadna karta przeglądarki jej nie ładuje, PWA nie działa w tle). Realne
+  scheduled push notifications wymagałyby serwera Web Push (VAPID +
+  endpoint subskrypcji) trzymającego harmonogram i budzącego Service
+  Workera zdalnie – to jawnie wykraczałoby poza założenie „bez własnego
+  backendu” z tego projektu. Periodic Background Sync (jedyne API
+  przeglądarkowe zbliżone do "obudź mnie później bez serwera") ma bardzo
+  ograniczone i niespójne wsparcie (brak w Safari/iOS, wymaga wysokiego
+  "site engagement score", przeglądarka i tak decyduje o częstotliwości
+  wg własnej heurystyki) – celowo z niego zrezygnowano zamiast budować
+  niedziałającą-w-praktyce, myloną-z-prawdziwym-mechanizmem funkcję.
+  W praktyce to powiadomienie realnie przyda się tylko wtedy, gdy
+  użytkownik ma aplikację/kartę otwartą (np. w tle) i akurat nie uczył się
+  jeszcze danego dnia – wysyłane co najwyżej raz dziennie (deduplikacja
+  przez datę w `localStorage`), żeby nie spamować przy każdym odświeżeniu.
+  Ustawienia widok jasno tłumaczy to ograniczenie użytkownikowi, a nie
+  tylko w tym dokumencie.
+
 ## Dzienne limity
 
 - Limit **nowych kart dziennie** liczony jest dokładnie na podstawie

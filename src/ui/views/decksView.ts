@@ -1,6 +1,7 @@
 import { cardRepo, deckRepo, folderRepo } from '../../db';
 import { navigate } from '../../router';
 import { h, icon, mount } from '../dom';
+import { renderReminderBanner } from '../reminderBanner';
 import { setTopbar } from '../shell';
 import { showToast } from '../toast';
 import type { Deck, Folder } from '../../types';
@@ -36,6 +37,7 @@ export async function renderDecksView(container: HTMLElement): Promise<void> {
     return;
   }
 
+  const reminderBanner = decks.length > 0 ? await renderReminderBanner() : null;
   const sections: HTMLElement[] = [renderFolderManager(folders, () => void renderDecksView(container))];
 
   const decksByFolder = new Map<string | null, Deck[]>();
@@ -73,7 +75,7 @@ export async function renderDecksView(container: HTMLElement): Promise<void> {
     sections.push(h('p', { class: 'muted text-center mt-16' }, 'Nie masz jeszcze żadnej talii.'));
   }
 
-  mount(container, ...sections, fab());
+  mount(container, ...(reminderBanner ? [reminderBanner] : []), ...sections, fab());
 }
 
 function renderFolderManager(folders: Folder[], onChange: () => void): HTMLElement {
