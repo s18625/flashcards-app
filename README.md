@@ -31,9 +31,14 @@ Interfejs jest po polsku, nauczane słownictwo jest angielskie.
 - **Foldery** – opcjonalne grupowanie talii w foldery, żeby łatwiej
   segregować większą liczbę talii tematycznie.
 - **Nauka** – powtórki algorytmem **SM-2**, oceny Nie pamiętam / Trudne /
-  Dobrze / Łatwo, tryb klasycznej fiszki (odwracanie) i tryb wpisywania
-  odpowiedzi, kierunek EN→PL lub PL→EN, konfigurowalne dzienne limity
-  nowych kart i powtórek, wymowa przez Web Speech API.
+  Dobrze / Łatwo, kierunek EN→PL lub PL→EN, konfigurowalne dzienne limity
+  nowych kart i powtórek, wymowa przez Web Speech API. Pięć trybów sesji:
+  klasyczna fiszka (odwracanie), wpisywanie odpowiedzi, **quiz** wielokrotnego
+  wyboru (4 opcje losowane z całej bazy fiszek), **dyktando** (odsłuchaj
+  słowo i zapisz jego pisownię) oraz **uzupełnianie luki w zdaniu** na
+  podstawie przykładowego zdania fiszki. Quiz i luka w zdaniu automatycznie
+  przełączają pojedynczą kartę na tryb wpisywania, gdy brakuje dla niej
+  danych (za mało innych fiszek na dystraktory / brak pasującego przykładu).
 - **Statystyki** – liczba fiszek, dzisiejsze powtórki, seria dni (streak),
   procent poprawnych odpowiedzi.
 - **Eksport / import** danych talii do JSON i CSV (Ustawienia).
@@ -87,7 +92,9 @@ Testy jednostkowe (Vitest) pokrywają m.in.:
 - ekstrakcję i lematyzację słów z tekstu OCR (`src/ocr/textProcessing.test.ts`),
 - serializację/kompresję/import/walidację udostępnianych talii, w tym
   błędne i złośliwe dane wejściowe (`src/share/share.test.ts`),
-- eksport/import CSV (`src/share/csv.test.ts`).
+- eksport/import CSV (`src/share/csv.test.ts`),
+- losowanie opcji quizu (`src/study/quiz.test.ts`) i wyszukiwanie luki w
+  zdaniu dla trybu cloze (`src/study/cloze.test.ts`).
 
 ## Lint i typy
 
@@ -171,5 +178,4 @@ na `/<nazwa-repozytorium>/`, więc nie trzeba nic zmieniać w kodzie.
 - Synchronizacja między urządzeniami przez opcjonalne konto/backend.
 - Więcej języków interfejsu i nauczanych par językowych (nie tylko EN↔PL).
 - Historia i wykresy postępów w czasie (nie tylko bieżące statystyki).
-- Tryb egzaminu/testu z wielokrotnym wyborem generowany z talii.
 - Wsparcie dla wielu talii jednocześnie w jednej sesji nauki z priorytetami.

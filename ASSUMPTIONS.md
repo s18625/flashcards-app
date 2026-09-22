@@ -180,6 +180,44 @@ lista talii jest płaska, bez zbędnych nagłówków).
   pochodne), poprawiająca UX bez zmiany logiki obliczania współczynnika
   łatwości.
 
+## Tryby nauki (quiz, dyktando, luka w zdaniu)
+
+Poza dotychczasowym odwracaniem fiszki i wpisywaniem odpowiedzi doszły trzy
+tryby (`src/ui/views/studySessionView.ts`, `StudyMode` w
+`src/ui/studyPrefs.ts`):
+
+- **Quiz (wielokrotny wybór)** – pokazuje słowo/tłumaczenie (zależnie od
+  wybranego kierunku) i 4 opcje do wyboru: poprawną odpowiedź plus do 3
+  losowych dystraktorów wyciągniętych z **wszystkich** fiszek w bazie (nie
+  tylko z bieżącej talii/sesji) – czysta logika losowania i deduplikacji
+  (case-insensitive) w `src/study/quiz.ts`, pokryta testami jednostkowymi.
+  Jeśli w bazie jest zbyt mało innych fiszek, by zebrać choć jeden sensowny
+  dystraktor (np. bardzo mała, świeżo utworzona talia), ta konkretna karta
+  automatycznie pokazuje się w trybie wpisywania zamiast quizu z 1 opcją.
+- **Dyktando** – syntezator mowy (Web Speech API, ten sam mechanizm co
+  przycisk głośnika gdzie indziej) odczytuje angielskie słowo, użytkownik
+  wpisuje usłyszaną pisownię. Dyktando zawsze dotyczy pisowni angielskiego
+  słowa niezależnie od wybranego kierunku EN→PL/PL→EN — to jedyny sensowny
+  wariant tego trybu. Opcja jest w ogóle niewidoczna na ekranie wyboru trybu,
+  jeśli przeglądarka nie wspiera `speechSynthesis`; gdyby mimo to tryb był
+  aktywny (np. zmiana przeglądarki między sesjami), karta również spada do
+  trybu wpisywania zamiast się wywalić.
+- **Uzupełnianie luki w zdaniu (cloze)** – wycina docelowe słowo z
+  przykładowego zdania fiszki (dopasowanie całego słowa/frazy,
+  case-insensitive, przez wyrażenie regularne z granicami słów – patrz
+  `src/study/cloze.ts` + testy) i pokazuje zdanie z luką do uzupełnienia.
+  Działa tylko dla fiszek, które **mają** przykładowe zdanie faktycznie
+  zawierające to słowo — reszta kart w tej samej sesji automatycznie
+  korzysta z trybu wpisywania. Bez tego warunku tryb byłby bezużyteczny dla
+  dużej części typowych fiszek (np. dodanych bez przykładowego zdania albo
+  z fiszek ze skanu podręcznika, gdzie „przykładem” bywa gotowe tłumaczenie,
+  nie zdanie).
+
+We wszystkich trzech trybach ocena SM-2 (Nie pamiętam/Trudne/Dobrze/Łatwo)
+pozostaje ręczna, tak jak w trybie wpisywania — pokazanie poprawnej
+odpowiedzi/feedbacku nie zastępuje samooceny użytkownika, bo to ona (a nie
+sama poprawność) napędza algorytm SM-2.
+
 ## Dzienne limity
 
 - Limit **nowych kart dziennie** liczony jest dokładnie na podstawie

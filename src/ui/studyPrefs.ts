@@ -1,6 +1,6 @@
 import type { StudyDirection } from '../types';
 
-export type StudyMode = 'flip' | 'type';
+export type StudyMode = 'flip' | 'type' | 'quiz' | 'dictation' | 'cloze';
 
 export interface StudyPrefs {
   direction: StudyDirection;

@@ -1,6 +1,8 @@
 import { cardRepo, reviewRepo, settingsRepo } from '../../db';
 import { navigate } from '../../router';
 import { nextSrsState } from '../../srs/sm2';
+import { findClozeBlank } from '../../study/cloze';
+import { buildQuizOptions } from '../../study/quiz';
 import type { Card, ReviewGrade } from '../../types';
 import { h, icon, mount } from '../dom';
 import { setTopbar } from '../shell';
@@ -49,6 +51,8 @@ export async function renderStudySessionView(container: HTMLElement, scope: stri
   let index = 0;
   let correctCount = 0;
 
+  const quizPool: Card[] = studyPrefs.mode === 'quiz' ? await cardRepo.getAllCards() : [];
+
   renderCurrentCard();
 
   function renderCurrentCard(): void {
@@ -65,7 +69,23 @@ export async function renderStudySessionView(container: HTMLElement, scope: stri
     );
     const counter = h('p', { class: 'muted text-center' }, `Karta ${index + 1} z ${total}`);
 
-    mount(container, progress, counter, studyPrefs.mode === 'type' ? renderTypeCard(card) : renderFlipCard(card));
+    mount(container, progress, counter, renderCardForMode(card));
+  }
+
+  function renderCardForMode(card: Card): HTMLElement {
+    switch (studyPrefs.mode) {
+      case 'type':
+        return renderTypeCard(card);
+      case 'quiz':
+        return renderQuizCard(card);
+      case 'dictation':
+        return renderDictationCard(card);
+      case 'cloze':
+        return renderClozeCard(card);
+      case 'flip':
+      default:
+        return renderFlipCard(card);
+    }
   }
 
   function renderFlipCard(card: Card): HTMLElement {
@@ -183,19 +203,195 @@ export async function renderStudySessionView(container: HTMLElement, scope: stri
           card.example ? h('p', { class: 'muted' }, card.example) : null
         )
       );
-      mount(
-        gradesContainer,
-        h(
-          'div',
-          { class: 'grade-row' },
-          ...GRADE_BUTTONS.map((g) =>
-            h('button', { class: `grade-btn ${g.className}`, onclick: () => submitGrade(card, g.grade) }, g.label)
-          )
-        )
-      );
+      mount(gradesContainer, gradeRow(card));
     }
 
     return h('div', null, promptCard, form, resultBox, gradesContainer);
+  }
+
+  function renderQuizCard(card: Card): HTMLElement {
+    const isEnPl = studyPrefs.direction === 'en-pl';
+    const promptText = isEnPl ? card.word : card.translation || '(brak tłumaczenia)';
+    const promptSpeakable = isEnPl ? card.word : null;
+    const correct = (isEnPl ? card.translation : card.word).trim();
+    const candidatePool = quizPool
+      .filter((c) => c.id !== card.id)
+      .map((c) => (isEnPl ? c.translation : c.word));
+    const options = buildQuizOptions(correct, candidatePool);
+
+    // Za mało kart w bazie, by wylosować sensowne dystraktory – dla tej karty wracamy do trybu wpisywania.
+    if (options.length < 2) {
+      return renderTypeCard(card);
+    }
+
+    const resultBox = h('div', { class: 'mt-16' });
+    const gradesContainer = h('div');
+    const optionButtons: HTMLButtonElement[] = [];
+
+    function selectOption(chosen: string, chosenBtn: HTMLButtonElement): void {
+      optionButtons.forEach((b) => (b.disabled = true));
+      const isCorrect = chosen === correct;
+      chosenBtn.classList.add(isCorrect ? 'quiz-option-correct' : 'quiz-option-wrong');
+      if (!isCorrect) {
+        const correctBtn = optionButtons.find((b) => b.textContent === correct);
+        correctBtn?.classList.add('quiz-option-correct');
+      }
+      mount(
+        resultBox,
+        h('div', { class: 'card-surface' }, h('p', { class: isCorrect ? '' : 'muted' }, isCorrect ? '✓ Poprawnie!' : `Poprawna odpowiedź: ${correct}`))
+      );
+      mount(gradesContainer, gradeRow(card));
+    }
+
+    const optionsList = h(
+      'div',
+      { class: 'quiz-options mt-16' },
+      ...options.map((opt) => {
+        const btn = h('button', { type: 'button', class: 'btn btn-block quiz-option' }, opt) as HTMLButtonElement;
+        btn.addEventListener('click', () => selectOption(opt, btn));
+        optionButtons.push(btn);
+        return btn;
+      })
+    );
+
+    const promptCard = h(
+      'div',
+      { class: 'card-surface text-center', style: 'position:relative' },
+      promptSpeakable ? speakerButton(promptSpeakable) : null,
+      h('div', { class: 'flip-word' }, promptText)
+    );
+
+    return h('div', null, promptCard, optionsList, resultBox, gradesContainer);
+  }
+
+  function renderDictationCard(card: Card): HTMLElement {
+    // Dyktando wymaga syntezy mowy – bez wsparcia przeglądarki wracamy do wpisywania.
+    if (!isTtsSupported()) {
+      return renderTypeCard(card);
+    }
+    const expected = card.word.trim();
+
+    const answerInput = h('input', {
+      type: 'text',
+      autocapitalize: 'off',
+      autocomplete: 'off',
+      placeholder: 'Wpisz usłyszane słowo po angielsku…',
+      'aria-label': 'Twoja odpowiedź'
+    }) as HTMLInputElement;
+
+    const resultBox = h('div', { class: 'mt-16' });
+    const gradesContainer = h('div');
+
+    const promptCard = h(
+      'div',
+      { class: 'card-surface text-center' },
+      icon('speaker'),
+      h('p', { class: 'muted mt-8' }, 'Posłuchaj i wpisz usłyszane słowo'),
+      h(
+        'button',
+        { type: 'button', class: 'btn mt-8', onclick: () => speak(expected, settings.ttsVoiceLang) },
+        icon('speaker'),
+        ' Odtwórz ponownie'
+      )
+    );
+
+    const form = h(
+      'form',
+      {
+        class: 'mt-16',
+        onsubmit: (e: Event) => {
+          e.preventDefault();
+          checkAnswer();
+        }
+      },
+      h('div', { class: 'field' }, answerInput),
+      h('button', { type: 'submit', class: 'btn btn-primary btn-block' }, 'Sprawdź')
+    );
+
+    function checkAnswer(): void {
+      const given = answerInput.value.trim().toLowerCase();
+      const isCorrect = given.length > 0 && given === expected.toLowerCase();
+      answerInput.disabled = true;
+      mount(
+        resultBox,
+        h(
+          'div',
+          { class: 'card-surface' },
+          h('p', { class: isCorrect ? '' : 'muted' }, isCorrect ? '✓ Poprawnie!' : `Poprawna pisownia: ${expected || '(brak danych)'}`),
+          card.translation ? h('p', { class: 'muted' }, card.translation) : null
+        )
+      );
+      mount(gradesContainer, gradeRow(card));
+    }
+
+    // Odtwórz od razu przy pokazaniu karty.
+    speak(expected, settings.ttsVoiceLang);
+
+    return h('div', null, promptCard, form, resultBox, gradesContainer);
+  }
+
+  function renderClozeCard(card: Card): HTMLElement {
+    const blank = findClozeBlank(card.example, card.word);
+    // Brak przykładowego zdania zawierającego słowo – dla tej karty wracamy do wpisywania.
+    if (!blank) {
+      return renderTypeCard(card);
+    }
+    const expected = card.word.trim();
+
+    const answerInput = h('input', {
+      type: 'text',
+      autocapitalize: 'off',
+      autocomplete: 'off',
+      placeholder: 'Wpisz brakujące słowo…',
+      'aria-label': 'Brakujące słowo'
+    }) as HTMLInputElement;
+
+    const resultBox = h('div', { class: 'mt-16' });
+    const gradesContainer = h('div');
+
+    const promptCard = h(
+      'div',
+      { class: 'card-surface' },
+      h('p', { class: 'muted' }, 'Uzupełnij lukę w zdaniu'),
+      h('p', { class: 'cloze-sentence' }, blank.before, h('span', { class: 'cloze-blank' }, '_____'), blank.after),
+      card.translation ? h('p', { class: 'muted mt-8' }, card.translation) : null
+    );
+
+    const form = h(
+      'form',
+      {
+        class: 'mt-16',
+        onsubmit: (e: Event) => {
+          e.preventDefault();
+          checkAnswer();
+        }
+      },
+      h('div', { class: 'field' }, answerInput),
+      h('button', { type: 'submit', class: 'btn btn-primary btn-block' }, 'Sprawdź')
+    );
+
+    function checkAnswer(): void {
+      const given = answerInput.value.trim().toLowerCase();
+      const isCorrect = given.length > 0 && given === expected.toLowerCase();
+      answerInput.disabled = true;
+      mount(
+        resultBox,
+        h('div', { class: 'card-surface' }, h('p', { class: isCorrect ? '' : 'muted' }, isCorrect ? '✓ Poprawnie!' : `Poprawna odpowiedź: ${expected}`))
+      );
+      mount(gradesContainer, gradeRow(card));
+    }
+
+    return h('div', null, promptCard, form, resultBox, gradesContainer);
+  }
+
+  function gradeRow(card: Card): HTMLElement {
+    return h(
+      'div',
+      { class: 'grade-row' },
+      ...GRADE_BUTTONS.map((g) =>
+        h('button', { class: `grade-btn ${g.className}`, onclick: () => submitGrade(card, g.grade) }, g.label)
+      )
+    );
   }
 
   function speakerButton(text: string): HTMLElement | null {

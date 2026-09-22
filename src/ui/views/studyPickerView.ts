@@ -4,6 +4,7 @@ import { navigate } from '../../router';
 import { studyPrefs } from '../studyPrefs';
 import { h, icon, mount } from '../dom';
 import { setTopbar } from '../shell';
+import { isTtsSupported } from '../tts';
 
 export async function renderStudyPickerView(container: HTMLElement): Promise<void> {
   setTopbar({ title: 'Nauka' });
@@ -25,13 +26,20 @@ export async function renderStudyPickerView(container: HTMLElement): Promise<voi
     (v) => (studyPrefs.direction = v as typeof studyPrefs.direction)
   );
 
+  const modeOptions = [
+    { value: 'flip', label: 'Odwracanie fiszki' },
+    { value: 'type', label: 'Wpisywanie odpowiedzi' },
+    { value: 'quiz', label: 'Quiz (wielokrotny wybór)' },
+    { value: 'cloze', label: 'Uzupełnianie luki w zdaniu' }
+  ];
+  if (isTtsSupported()) {
+    modeOptions.push({ value: 'dictation', label: 'Dyktando (pisownia ze słuchu)' });
+  }
+
   const modeGroup = radioGroup(
     'Tryb',
     'study-mode',
-    [
-      { value: 'flip', label: 'Odwracanie fiszki' },
-      { value: 'type', label: 'Wpisywanie odpowiedzi' }
-    ],
+    modeOptions,
     studyPrefs.mode,
     (v) => (studyPrefs.mode = v as typeof studyPrefs.mode)
   );
