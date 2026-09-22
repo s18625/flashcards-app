@@ -218,6 +218,33 @@ pozostaje ręczna, tak jak w trybie wpisywania — pokazanie poprawnej
 odpowiedzi/feedbacku nie zastępuje samooceny użytkownika, bo to ona (a nie
 sama poprawność) napędza algorytm SM-2.
 
+## Gesty swipe w trybie odwracania fiszki
+
+W trybie klasycznej fiszki, **po jej odwróceniu**, kartę można ocenić
+przesunięciem palcem/kursorem zamiast (albo obok) klikania przycisków oceny:
+w prawo → Dobrze, w lewo → Nie pamiętam, w górę → Łatwo, w dół → Trudne
+(mapowanie kolorystycznie spójne z przyciskami oceny). Implementacja oparta
+o Pointer Events (`pointerdown`/`pointermove`/`pointerup`), więc działa
+identycznie dla dotyku i myszki. Szczegóły:
+
+- Gest jest aktywny **tylko po odwróceniu** karty (trzeba zobaczyć
+  odpowiedź, zanim można się ocenić) — przed odwróceniem przeciąganie nic
+  nie robi, a zwykłe dotknięcie nadal odwraca kartę.
+- Przesunięcie musi przekroczyć próg **80px** w dominującej osi, inaczej
+  karta wraca animowanym płynnym ruchem na środek bez żadnej oceny — pozwala
+  to bezpiecznie odwrócić kartę z powrotem na przód zwykłym dotknięciem bez
+  przypadkowej oceny przy drobnym, niezamierzonym ruchu palca.
+- W trakcie przeciągania karta dostaje kolorowy obrys (podgląd, od 24px
+  ruchu) sygnalizujący, jaka ocena zostanie przyznana po puszczeniu.
+- **Przyciski oceny pod fiszką pozostają zawsze widoczne i w pełni
+  funkcjonalne** — to świadoma decyzja: swipe jest tylko dodatkowym,
+  szybszym skrótem na urządzeniach dotykowych, a nie zamiennikiem. Dzięki
+  temu ocena fiszki pozostaje w pełni dostępna z klawiatury/czytnika ekranu
+  i działa identycznie na desktopie bez wskaźnika myszy w trybie "drag".
+- `touch-action: none` na karcie zapobiega przewijaniu strony podczas
+  pionowego przesuwania (Łatwo/Trudne), które inaczej kolidowałoby z
+  natywnym scrollem przeglądarki na telefonie.
+
 ## Dzienne limity
 
 - Limit **nowych kart dziennie** liczony jest dokładnie na podstawie

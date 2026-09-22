@@ -403,6 +403,27 @@ select:focus {
   width: 100%;
   height: 260px;
   cursor: pointer;
+  touch-action: none;
+}
+
+.flip-card.dragging {
+  cursor: grabbing;
+}
+
+.flip-card.swipe-good .flip-face-back {
+  box-shadow: var(--shadow-md), 0 0 0 4px var(--color-primary);
+}
+
+.flip-card.swipe-again .flip-face-back {
+  box-shadow: var(--shadow-md), 0 0 0 4px var(--color-danger);
+}
+
+.flip-card.swipe-easy .flip-face-back {
+  box-shadow: var(--shadow-md), 0 0 0 4px var(--color-success);
+}
+
+.flip-card.swipe-hard .flip-face-back {
+  box-shadow: var(--shadow-md), 0 0 0 4px var(--color-warning);
 }
 
 .flip-card-inner {

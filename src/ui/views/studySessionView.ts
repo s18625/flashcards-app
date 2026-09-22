@@ -112,7 +112,8 @@ export async function renderStudySessionView(container: HTMLElement, scope: stri
         backSpeakable ? speakerButton(backSpeakable) : null,
         h('div', { class: 'flip-word' }, backMain),
         card.example ? h('div', { class: 'flip-sub' }, card.example) : null,
-        card.partOfSpeech ? h('div', { class: 'badge' }, card.partOfSpeech) : null
+        card.partOfSpeech ? h('div', { class: 'badge' }, card.partOfSpeech) : null,
+        h('div', { class: 'flip-hint' }, 'Przesuń, aby ocenić, albo użyj przycisków')
       )
     );
     flipEl.appendChild(inner);
@@ -124,6 +125,10 @@ export async function renderStudySessionView(container: HTMLElement, scope: stri
     };
     flipEl.addEventListener('click', (e) => {
       if ((e.target as HTMLElement).closest('.icon-button')) return;
+      if (dragMoved) {
+        dragMoved = false;
+        return;
+      }
       toggle();
     });
     flipEl.addEventListener('keydown', (e) => {
@@ -132,6 +137,76 @@ export async function renderStudySessionView(container: HTMLElement, scope: stri
         toggle();
       }
     });
+
+    // Gesty swipe do oceniania: dostępne dopiero po odwróceniu fiszki (trzeba
+    // zobaczyć odpowiedź), niezależne od przycisków oceny, które zawsze
+    // zostają jako podstawowy, dostępny z klawiatury sposób oceny.
+    const SWIPE_THRESHOLD = 80;
+    const TAP_MOVE_THRESHOLD = 10;
+    const SWIPE_TINT_CLASSES = ['swipe-good', 'swipe-again', 'swipe-easy', 'swipe-hard'];
+    let dragging = false;
+    let dragMoved = false;
+    let graded = false;
+    let dragStartX = 0;
+    let dragStartY = 0;
+
+    flipEl.addEventListener('pointerdown', (e: PointerEvent) => {
+      if (!flipped || graded) return;
+      if ((e.target as HTMLElement).closest('.icon-button')) return;
+      dragging = true;
+      dragMoved = false;
+      dragStartX = e.clientX;
+      dragStartY = e.clientY;
+      flipEl.setPointerCapture(e.pointerId);
+      flipEl.classList.add('dragging');
+    });
+
+    flipEl.addEventListener('pointermove', (e: PointerEvent) => {
+      if (!dragging) return;
+      const dx = e.clientX - dragStartX;
+      const dy = e.clientY - dragStartY;
+      if (Math.abs(dx) > TAP_MOVE_THRESHOLD || Math.abs(dy) > TAP_MOVE_THRESHOLD) dragMoved = true;
+      flipEl.style.transform = `translate(${dx}px, ${dy}px) rotate(${dx * 0.04}deg)`;
+      flipEl.classList.remove(...SWIPE_TINT_CLASSES);
+      if (Math.abs(dx) > Math.abs(dy)) {
+        if (dx > 24) flipEl.classList.add('swipe-good');
+        else if (dx < -24) flipEl.classList.add('swipe-again');
+      } else {
+        if (dy < -24) flipEl.classList.add('swipe-easy');
+        else if (dy > 24) flipEl.classList.add('swipe-hard');
+      }
+    });
+
+    const endDrag = (e: PointerEvent): void => {
+      if (!dragging) return;
+      dragging = false;
+      flipEl.classList.remove('dragging');
+      const dx = e.clientX - dragStartX;
+      const dy = e.clientY - dragStartY;
+
+      let grade: ReviewGrade | null = null;
+      if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > SWIPE_THRESHOLD) {
+        grade = dx > 0 ? 'good' : 'again';
+      } else if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > SWIPE_THRESHOLD) {
+        grade = dy < 0 ? 'easy' : 'hard';
+      }
+
+      flipEl.style.transition = 'transform 0.25s ease, opacity 0.25s ease';
+      if (grade) {
+        graded = true;
+        const flyX = Math.abs(dx) >= Math.abs(dy) ? Math.sign(dx) * 600 : dx;
+        const flyY = Math.abs(dy) > Math.abs(dx) ? Math.sign(dy) * 600 : dy;
+        flipEl.style.transform = `translate(${flyX}px, ${flyY}px) rotate(${dx * 0.06}deg)`;
+        flipEl.style.opacity = '0';
+        const finalGrade = grade;
+        window.setTimeout(() => submitGrade(card, finalGrade), 200);
+      } else {
+        flipEl.style.transform = '';
+        flipEl.classList.remove(...SWIPE_TINT_CLASSES);
+      }
+    };
+    flipEl.addEventListener('pointerup', endDrag);
+    flipEl.addEventListener('pointercancel', endDrag);
 
     const scene = h('div', { class: 'flip-scene' }, flipEl);
     const grades = h(

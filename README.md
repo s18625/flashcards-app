@@ -39,6 +39,10 @@ Interfejs jest po polsku, nauczane słownictwo jest angielskie.
   podstawie przykładowego zdania fiszki. Quiz i luka w zdaniu automatycznie
   przełączają pojedynczą kartę na tryb wpisywania, gdy brakuje dla niej
   danych (za mało innych fiszek na dystraktory / brak pasującego przykładu).
+  W trybie odwracania fiszki ocenę można też przyznać gestem swipe –
+  przesunięciem palca/kursora w prawo / lewo / górę / dół (odpowiednio
+  Dobrze / Nie pamiętam / Łatwo / Trudne) – obok zawsze dostępnych
+  przycisków oceny.
 - **Statystyki** – liczba fiszek, dzisiejsze powtórki, seria dni (streak),
   procent poprawnych odpowiedzi.
 - **Eksport / import** danych talii do JSON i CSV (Ustawienia).
