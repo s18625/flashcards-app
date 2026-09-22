@@ -182,5 +182,10 @@ const ICON_BUILDERS = {
       hs('rect', { ...strokeProps, x: 3, y: 4, width: 18, height: 16, rx: 2 }),
       hs('circle', { ...strokeProps, cx: 9, cy: 10, r: 2 }),
       hs('path', { ...strokeProps, d: 'M21 16 l-5.5 -5.5 a1.5 1.5 0 0 0 -2 0 L4 19' })
+    ),
+  search: () =>
+    svgWrap(
+      hs('circle', { ...strokeProps, cx: 11, cy: 11, r: 7 }),
+      hs('line', { ...strokeProps, x1: 21, y1: 21, x2: 16.2, y2: 16.2 })
     )
 };

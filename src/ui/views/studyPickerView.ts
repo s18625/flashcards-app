@@ -1,9 +1,11 @@
-import { cardRepo, deckRepo } from '../../db';
+import { cardRepo, deckRepo, reviewRepo } from '../../db';
 import { isNewCard } from '../../srs/sm2';
 import { navigate } from '../../router';
+import { selectDifficultCards } from '../../study/difficult';
 import { studyPrefs } from '../studyPrefs';
 import { h, icon, mount } from '../dom';
 import { setTopbar } from '../shell';
+import { isTtsSupported } from '../tts';
 
 export async function renderStudyPickerView(container: HTMLElement): Promise<void> {
   setTopbar({ title: 'Nauka' });
@@ -11,8 +13,9 @@ export async function renderStudyPickerView(container: HTMLElement): Promise<voi
   mount(container, h('div', { class: 'spinner' }));
 
   const decks = await deckRepo.listDecks();
-  const allCards = await cardRepo.getAllCards();
+  const [allCards, allLogs] = await Promise.all([cardRepo.getAllCards(), reviewRepo.getAllReviews()]);
   const now = Date.now();
+  const difficultCount = selectDifficultCards(allCards, allLogs).length;
 
   const directionGroup = radioGroup(
     'Kierunek',
@@ -25,13 +28,20 @@ export async function renderStudyPickerView(container: HTMLElement): Promise<voi
     (v) => (studyPrefs.direction = v as typeof studyPrefs.direction)
   );
 
+  const modeOptions = [
+    { value: 'flip', label: 'Odwracanie fiszki' },
+    { value: 'type', label: 'Wpisywanie odpowiedzi' },
+    { value: 'quiz', label: 'Quiz (wielokrotny wybór)' },
+    { value: 'cloze', label: 'Uzupełnianie luki w zdaniu' }
+  ];
+  if (isTtsSupported()) {
+    modeOptions.push({ value: 'dictation', label: 'Dyktando (pisownia ze słuchu)' });
+  }
+
   const modeGroup = radioGroup(
     'Tryb',
     'study-mode',
-    [
-      { value: 'flip', label: 'Odwracanie fiszki' },
-      { value: 'type', label: 'Wpisywanie odpowiedzi' }
-    ],
+    modeOptions,
     studyPrefs.mode,
     (v) => (studyPrefs.mode = v as typeof studyPrefs.mode)
   );
@@ -89,6 +99,15 @@ export async function renderStudyPickerView(container: HTMLElement): Promise<voi
         },
         icon('graduate'),
         `Ucz się ze wszystkich talii (${totalDue + totalNew})`
+      ),
+      h(
+        'button',
+        {
+          class: 'btn btn-outline btn-block mt-16',
+          disabled: difficultCount === 0,
+          onclick: () => navigate('/study/difficult')
+        },
+        `Trudne słówka (${difficultCount})`
       )
     ),
     h('h2', null, 'Talie'),

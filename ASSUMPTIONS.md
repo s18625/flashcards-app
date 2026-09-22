@@ -180,6 +180,177 @@ lista talii jest płaska, bez zbędnych nagłówków).
   pochodne), poprawiająca UX bez zmiany logiki obliczania współczynnika
   łatwości.
 
+## Tryby nauki (quiz, dyktando, luka w zdaniu)
+
+Poza dotychczasowym odwracaniem fiszki i wpisywaniem odpowiedzi doszły trzy
+tryby (`src/ui/views/studySessionView.ts`, `StudyMode` w
+`src/ui/studyPrefs.ts`):
+
+- **Quiz (wielokrotny wybór)** – pokazuje słowo/tłumaczenie (zależnie od
+  wybranego kierunku) i 4 opcje do wyboru: poprawną odpowiedź plus do 3
+  losowych dystraktorów wyciągniętych z **wszystkich** fiszek w bazie (nie
+  tylko z bieżącej talii/sesji) – czysta logika losowania i deduplikacji
+  (case-insensitive) w `src/study/quiz.ts`, pokryta testami jednostkowymi.
+  Jeśli w bazie jest zbyt mało innych fiszek, by zebrać choć jeden sensowny
+  dystraktor (np. bardzo mała, świeżo utworzona talia), ta konkretna karta
+  automatycznie pokazuje się w trybie wpisywania zamiast quizu z 1 opcją.
+- **Dyktando** – syntezator mowy (Web Speech API, ten sam mechanizm co
+  przycisk głośnika gdzie indziej) odczytuje angielskie słowo, użytkownik
+  wpisuje usłyszaną pisownię. Dyktando zawsze dotyczy pisowni angielskiego
+  słowa niezależnie od wybranego kierunku EN→PL/PL→EN — to jedyny sensowny
+  wariant tego trybu. Opcja jest w ogóle niewidoczna na ekranie wyboru trybu,
+  jeśli przeglądarka nie wspiera `speechSynthesis`; gdyby mimo to tryb był
+  aktywny (np. zmiana przeglądarki między sesjami), karta również spada do
+  trybu wpisywania zamiast się wywalić.
+- **Uzupełnianie luki w zdaniu (cloze)** – wycina docelowe słowo z
+  przykładowego zdania fiszki (dopasowanie całego słowa/frazy,
+  case-insensitive, przez wyrażenie regularne z granicami słów – patrz
+  `src/study/cloze.ts` + testy) i pokazuje zdanie z luką do uzupełnienia.
+  Działa tylko dla fiszek, które **mają** przykładowe zdanie faktycznie
+  zawierające to słowo — reszta kart w tej samej sesji automatycznie
+  korzysta z trybu wpisywania. Bez tego warunku tryb byłby bezużyteczny dla
+  dużej części typowych fiszek (np. dodanych bez przykładowego zdania albo
+  z fiszek ze skanu podręcznika, gdzie „przykładem” bywa gotowe tłumaczenie,
+  nie zdanie).
+
+We wszystkich trzech trybach ocena SM-2 (Nie pamiętam/Trudne/Dobrze/Łatwo)
+pozostaje ręczna, tak jak w trybie wpisywania — pokazanie poprawnej
+odpowiedzi/feedbacku nie zastępuje samooceny użytkownika, bo to ona (a nie
+sama poprawność) napędza algorytm SM-2.
+
+## Gesty swipe w trybie odwracania fiszki
+
+W trybie klasycznej fiszki, **po jej odwróceniu**, kartę można ocenić
+przesunięciem palcem/kursorem zamiast (albo obok) klikania przycisków oceny:
+w prawo → Dobrze, w lewo → Nie pamiętam, w górę → Łatwo, w dół → Trudne
+(mapowanie kolorystycznie spójne z przyciskami oceny). Implementacja oparta
+o Pointer Events (`pointerdown`/`pointermove`/`pointerup`), więc działa
+identycznie dla dotyku i myszki. Szczegóły:
+
+- Gest jest aktywny **tylko po odwróceniu** karty (trzeba zobaczyć
+  odpowiedź, zanim można się ocenić) — przed odwróceniem przeciąganie nic
+  nie robi, a zwykłe dotknięcie nadal odwraca kartę.
+- Przesunięcie musi przekroczyć próg **80px** w dominującej osi, inaczej
+  karta wraca animowanym płynnym ruchem na środek bez żadnej oceny — pozwala
+  to bezpiecznie odwrócić kartę z powrotem na przód zwykłym dotknięciem bez
+  przypadkowej oceny przy drobnym, niezamierzonym ruchu palca.
+- W trakcie przeciągania karta dostaje kolorowy obrys (podgląd, od 24px
+  ruchu) sygnalizujący, jaka ocena zostanie przyznana po puszczeniu.
+- **Przyciski oceny pod fiszką pozostają zawsze widoczne i w pełni
+  funkcjonalne** — to świadoma decyzja: swipe jest tylko dodatkowym,
+  szybszym skrótem na urządzeniach dotykowych, a nie zamiennikiem. Dzięki
+  temu ocena fiszki pozostaje w pełni dostępna z klawiatury/czytnika ekranu
+  i działa identycznie na desktopie bez wskaźnika myszy w trybie "drag".
+- `touch-action: none` na karcie zapobiega przewijaniu strony podczas
+  pionowego przesuwania (Łatwo/Trudne), które inaczej kolidowałoby z
+  natywnym scrollem przeglądarki na telefonie.
+
+## Wyszukiwarka fiszek
+
+`src/search/search.ts` (`cardMatchesQuery`/`searchCards`, pokryte testami)
+to czysta funkcja filtrująca po polach słowo/tłumaczenie/przykład/notatka,
+case-insensitive substring match — bez zewnętrznego indeksu wyszukiwania
+(niepotrzebny przy typowej skali danych lokalnej aplikacji offline-first).
+Widok (`src/ui/views/searchView.ts`) pobiera **wszystkie** fiszki ze
+wszystkich talii raz przy wejściu na ekran i filtruje w pamięci przy każdym
+wpisanym znaku — wystarczająco szybkie bez debounce przy realistycznej
+liczbie fiszek w tej aplikacji. Lista wyników jest ograniczona do 100
+pozycji (z komunikatem o obcięciu) jako prosty zabezpiecznik przed
+wyrenderowaniem tysięcy elementów DOM naraz przy bardzo dużej kolekcji.
+Kliknięcie wyniku prowadzi wprost do edycji tej fiszki, z widoczną nazwą
+talii, do której należy — przydatne zwłaszcza przy wielu taliach, kiedy
+nie pamięta się, gdzie dane słówko zostało zapisane.
+
+## Wirtualna talia „Trudne słówka”
+
+`src/study/difficult.ts` (`selectDifficultCards`, pokryte testami) wybiera
+karty ze **wszystkich talii naraz** na podstawie historii powtórek, a nie
+bieżącego stanu SM-2: dla każdej karty liczy ważony wskaźnik trudności z
+logu powtórek — ocena „Nie pamiętam” liczy się jako 1, „Trudne” jako 0,5,
+„Dobrze”/„Łatwo” jako 0 — i kwalifikuje kartę, jeśli ma co najmniej 2
+powtórki w historii oraz wskaźnik ≥ 0,34 (czyli z grubsza: częściej niż co
+trzecia powtórka to „Nie pamiętam”, albo odpowiednik w „Trudnych”).
+Wyniki są sortowane od najtrudniejszej, ograniczone do 50 kart. Nowe,
+nigdy niepowtarzane karty nigdy się nie kwalifikują — na ich temat nie ma
+jeszcze żadnego sygnału.
+
+Sesja nauki dla tej wirtualnej talii (`/study/difficult`, przycisk „Trudne
+słówka” na ekranie wyboru trybu nauki) celowo **ignoruje** bieżący
+`dueDate` karty w SM-2 oraz dzienne limity nowych/powtórek — to
+dobrowolny, dodatkowy trening wybranych trudnych słówek, niezależny od
+normalnej kolejki powtórek, a nie jej część. Ocena karty w tej sesji nadal
+normalnie aktualizuje jej stan SM-2 i loguje powtórkę, więc regularne
+ćwiczenie w tym trybie realnie poprawia współczynnik łatwości karty i może
+z czasem wypaść z listy trudnych słówek.
+
+## Zdjęcie/obrazek przy fiszce
+
+Opcjonalne pole `Card.image` (data URL) dodawane w formularzu fiszki
+(`src/ui/views/cardFormView.ts`) jako wizualna mnemotechnika. Kluczowe
+decyzje:
+
+- **Skalowanie i kompresja po stronie klienta** (`src/utils/image.ts`,
+  `fileToResizedDataUrl`) – zdjęcie z aparatu telefonu potrafi mieć kilka
+  MB; przed zapisem do IndexedDB jest skalowane do maks. 800px po dłuższym
+  boku i kodowane jako JPEG (jakość 0,8) przez `canvas.toDataURL`. Bez tego
+  IndexedDB (i cały eksport/import talii) szybko rozdęłyby się do
+  nieproporcjonalnych rozmiarów. To cienki wrapper nad przeglądarkowym
+  `createImageBitmap`/`canvas` – bez testów jednostkowych z tego samego
+  powodu co `src/ui/tts.ts` (nie da się tego sensownie przetestować bez
+  jsdom-canvas), zweryfikowane ręcznie w przeglądarce.
+- **Widoczność podczas nauki jest świadomie ograniczona do trybów, które i
+  tak już pokazują słowo/tłumaczenie wprost jako "prompt"** – fiszka
+  (przód), wpisywanie odpowiedzi i quiz. Obrazek jest **pominięty** w
+  dyktandzie (gdzie zadaniem jest odgadnięcie pisowni ze słuchu – obrazek
+  natychmiast zdradziłby słowo) i w uzupełnianiu luki w zdaniu (gdzie
+  zadaniem jest odgadnięcie słowa z kontekstu zdania – obrazek też by to
+  zepsuł). To nie przeoczenie, tylko celowa decyzja o poprawności
+  ćwiczenia.
+- **Nigdy nie trafia do udostępniania talii ani eksportu CSV** –
+  `ShareCardPayload`/`SharePayload` (`src/types.ts`) świadomie nie mają
+  pola `image`, a `serializeDeckForSharing` buduje payload przez jawne
+  wskazanie dozwolonych pól (nie przez rozpakowanie całego obiektu karty),
+  więc nawet przyszłe pola dodane do `Card` nie „przeciekną” przypadkiem.
+  Pokryte regresyjnym testem w `src/share/share.test.ts`. Powód: obrazki
+  potrafią być duże, a talia jest myślana jako udostępnianie *słownictwa*,
+  nie prywatnych zdjęć/plików z urządzenia użytkownika.
+
+## Przypomnienia o codziennej nauce
+
+Dwa niezależnie włączane mechanizmy (`src/reminders/reminders.ts` – czysta
+logika decyzyjna z testami; `src/ui/reminderBanner.ts` – integracja z
+przeglądarką/DOM):
+
+- **Baner w aplikacji** (domyślnie włączony) – gdy dzisiaj nie było
+  jeszcze żadnej powtórki, na liście talii pojawia się baner z przyciskiem
+  „Ucz się teraz”. To **niezawodny** mechanizm, bo działa w 100% lokalnie
+  przy każdym otwarciu aplikacji, bez żadnych uprawnień przeglądarki.
+  Zamknięcie banera chowa go tylko do końca bieżącej sesji karty (zmienna
+  w pamięci, nie w bazie) – po ponownym otwarciu aplikacji następnego dnia
+  (albo po prostym odświeżeniu tego samego dnia) baner może się pojawić
+  znowu, jeśli wciąż nie było powtórki.
+- **Powiadomienie przeglądarki** (domyślnie wyłączone, wymaga jawnej zgody
+  w Ustawieniach przez `Notification.requestPermission()`) – **best-effort,
+  z istotnym ograniczeniem, które trzeba jasno powiedzieć**: ta aplikacja
+  nie ma własnego backendu ani serwera push, więc **nie ma możliwości
+  wysłania powiadomienia, gdy aplikacja jest całkowicie zamknięta**
+  (żadna karta przeglądarki jej nie ładuje, PWA nie działa w tle). Realne
+  scheduled push notifications wymagałyby serwera Web Push (VAPID +
+  endpoint subskrypcji) trzymającego harmonogram i budzącego Service
+  Workera zdalnie – to jawnie wykraczałoby poza założenie „bez własnego
+  backendu” z tego projektu. Periodic Background Sync (jedyne API
+  przeglądarkowe zbliżone do "obudź mnie później bez serwera") ma bardzo
+  ograniczone i niespójne wsparcie (brak w Safari/iOS, wymaga wysokiego
+  "site engagement score", przeglądarka i tak decyduje o częstotliwości
+  wg własnej heurystyki) – celowo z niego zrezygnowano zamiast budować
+  niedziałającą-w-praktyce, myloną-z-prawdziwym-mechanizmem funkcję.
+  W praktyce to powiadomienie realnie przyda się tylko wtedy, gdy
+  użytkownik ma aplikację/kartę otwartą (np. w tle) i akurat nie uczył się
+  jeszcze danego dnia – wysyłane co najwyżej raz dziennie (deduplikacja
+  przez datę w `localStorage`), żeby nie spamować przy każdym odświeżeniu.
+  Ustawienia widok jasno tłumaczy to ograniczenie użytkownikowi, a nie
+  tylko w tym dokumencie.
+
 ## Dzienne limity
 
 - Limit **nowych kart dziennie** liczony jest dokładnie na podstawie

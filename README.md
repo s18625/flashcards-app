@@ -30,10 +30,38 @@ Interfejs jest po polsku, nauczane słownictwo jest angielskie.
     podręcznika, zamiast rozbijać je na pojedyncze słowa.
 - **Foldery** – opcjonalne grupowanie talii w foldery, żeby łatwiej
   segregować większą liczbę talii tematycznie.
+- **Zdjęcie/obrazek przy fiszce** – opcjonalny obrazek jako wizualna
+  mnemotechnika, dodawany w formularzu fiszki (plik z galerii/aparatu,
+  automatycznie skalowany i kompresowany przed zapisem). Widoczny podczas
+  nauki w trybach, które i tak pokazują słowo/tłumaczenie wprost (fiszka,
+  wpisywanie, quiz) — pominięty w dyktandzie i luce w zdaniu, gdzie
+  zdradzałby odpowiedź. Nigdy nie jest udostępniany razem z talią.
+- **Wyszukiwarka** – szukanie fiszek jednocześnie po wszystkich taliach
+  (słowo, tłumaczenie, przykładowe zdanie, notatka), z podglądem talii, do
+  której należy wynik, i szybkim przejściem do edycji.
+- **Trudne słówka** – automatyczna wirtualna talia złożona ze słówek ze
+  wszystkich talii, które historycznie najczęściej były oceniane jako „Nie
+  pamiętam”/„Trudne”, do dodatkowego treningu niezależnego od normalnej
+  kolejki powtórek i dziennych limitów.
+- **Przypomnienia o nauce** – baner na liście talii, gdy danego dnia nie
+  było jeszcze żadnej powtórki, plus opcjonalne (wymaga zgody), best-effort
+  powiadomienie przeglądarki. Bez własnego backendu nie ma możliwości
+  wysłania powiadomienia, gdy aplikacja jest całkiem zamknięta — baner w
+  aplikacji jest jedynym w pełni niezawodnym mechanizmem (patrz
+  `ASSUMPTIONS.md`).
 - **Nauka** – powtórki algorytmem **SM-2**, oceny Nie pamiętam / Trudne /
-  Dobrze / Łatwo, tryb klasycznej fiszki (odwracanie) i tryb wpisywania
-  odpowiedzi, kierunek EN→PL lub PL→EN, konfigurowalne dzienne limity
-  nowych kart i powtórek, wymowa przez Web Speech API.
+  Dobrze / Łatwo, kierunek EN→PL lub PL→EN, konfigurowalne dzienne limity
+  nowych kart i powtórek, wymowa przez Web Speech API. Pięć trybów sesji:
+  klasyczna fiszka (odwracanie), wpisywanie odpowiedzi, **quiz** wielokrotnego
+  wyboru (4 opcje losowane z całej bazy fiszek), **dyktando** (odsłuchaj
+  słowo i zapisz jego pisownię) oraz **uzupełnianie luki w zdaniu** na
+  podstawie przykładowego zdania fiszki. Quiz i luka w zdaniu automatycznie
+  przełączają pojedynczą kartę na tryb wpisywania, gdy brakuje dla niej
+  danych (za mało innych fiszek na dystraktory / brak pasującego przykładu).
+  W trybie odwracania fiszki ocenę można też przyznać gestem swipe –
+  przesunięciem palca/kursora w prawo / lewo / górę / dół (odpowiednio
+  Dobrze / Nie pamiętam / Łatwo / Trudne) – obok zawsze dostępnych
+  przycisków oceny.
 - **Statystyki** – liczba fiszek, dzisiejsze powtórki, seria dni (streak),
   procent poprawnych odpowiedzi.
 - **Eksport / import** danych talii do JSON i CSV (Ustawienia).
@@ -87,7 +115,13 @@ Testy jednostkowe (Vitest) pokrywają m.in.:
 - ekstrakcję i lematyzację słów z tekstu OCR (`src/ocr/textProcessing.test.ts`),
 - serializację/kompresję/import/walidację udostępnianych talii, w tym
   błędne i złośliwe dane wejściowe (`src/share/share.test.ts`),
-- eksport/import CSV (`src/share/csv.test.ts`).
+- eksport/import CSV (`src/share/csv.test.ts`),
+- losowanie opcji quizu (`src/study/quiz.test.ts`) i wyszukiwanie luki w
+  zdaniu dla trybu cloze (`src/study/cloze.test.ts`),
+- dopasowywanie fiszek do zapytania w wyszukiwarce (`src/search/search.test.ts`),
+- wybór kart do wirtualnej talii „Trudne słówka” na podstawie historii
+  powtórek (`src/study/difficult.test.ts`),
+- logikę decyzyjną przypomnień o nauce (`src/reminders/reminders.test.ts`).
 
 ## Lint i typy
 
@@ -162,6 +196,10 @@ na `/<nazwa-repozytorium>/`, więc nie trzeba nic zmieniać w kodzie.
 - Brak synchronizacji między urządzeniami — dane są lokalne dla
   przeglądarki/urządzenia; jedynym sposobem przenoszenia talii jest ręczne
   udostępnianie (link/plik/QR).
+- Powiadomienia przeglądarki o braku dzisiejszej nauki działają tylko, gdy
+  aplikacja jest otwarta — bez własnego backendu (serwera Web Push) nie da
+  się wysłać powiadomienia, gdy aplikacja jest całkiem zamknięta (patrz
+  `ASSUMPTIONS.md`). Baner w aplikacji nie ma tego ograniczenia.
 
 ## Pomysły na rozwój
 
@@ -171,5 +209,4 @@ na `/<nazwa-repozytorium>/`, więc nie trzeba nic zmieniać w kodzie.
 - Synchronizacja między urządzeniami przez opcjonalne konto/backend.
 - Więcej języków interfejsu i nauczanych par językowych (nie tylko EN↔PL).
 - Historia i wykresy postępów w czasie (nie tylko bieżące statystyki).
-- Tryb egzaminu/testu z wielokrotnym wyborem generowany z talii.
 - Wsparcie dla wielu talii jednocześnie w jednej sesji nauki z priorytetami.

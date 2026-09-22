@@ -46,6 +46,8 @@ export interface Card {
   example: string;
   partOfSpeech: PartOfSpeech | '';
   note: string;
+  /** Opcjonalny obrazek (data URL, zmniejszony/skompresowany) – wizualna mnemotechnika. Nigdy nie jest udostępniany. */
+  image?: string | null;
   createdAt: number;
   updatedAt: number;
   srs: SrsState;
@@ -79,6 +81,10 @@ export interface AppSettings {
   dailyReviewLimit: number;
   ttsVoiceLang: 'en-US' | 'en-GB';
   ttsEnabled: boolean;
+  /** Pokazuj baner "nie uczyłeś się dziś" na liście talii. */
+  remindersEnabled: boolean;
+  /** Czy próbować wysłać powiadomienie przeglądarki, gdy nie uczyłeś się dziś (best-effort, patrz ASSUMPTIONS.md - działa tylko gdy aplikacja jest otwarta). */
+  remindersNotificationEnabled: boolean;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -91,7 +97,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
   dailyNewCardsLimit: 20,
   dailyReviewLimit: 100,
   ttsVoiceLang: 'en-US',
-  ttsEnabled: true
+  ttsEnabled: true,
+  remindersEnabled: true,
+  remindersNotificationEnabled: false
 };
 
 /** Format wymiany talii (udostępnianie bez backendu). */

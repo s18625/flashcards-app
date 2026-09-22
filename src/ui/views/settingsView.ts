@@ -99,6 +99,33 @@ export async function renderSettingsView(container: HTMLElement): Promise<void> 
     void persist({ dailyReviewLimit: v });
   });
 
+  const remindersEnabledCheckbox = h('input', {
+    type: 'checkbox',
+    checked: settings.remindersEnabled,
+    onchange: (e: Event) => void persist({ remindersEnabled: (e.target as HTMLInputElement).checked })
+  }) as HTMLInputElement;
+
+  const notificationSupported = typeof window !== 'undefined' && 'Notification' in window;
+  const notificationCheckbox = h('input', {
+    type: 'checkbox',
+    checked: settings.remindersNotificationEnabled,
+    disabled: !notificationSupported,
+    onchange: async (e: Event) => {
+      const input = e.target as HTMLInputElement;
+      if (!input.checked) {
+        await persist({ remindersNotificationEnabled: false });
+        return;
+      }
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        input.checked = false;
+        showToast('Nie udzielono zgody na powiadomienia w przeglądarce.', 'error');
+        return;
+      }
+      await persist({ remindersNotificationEnabled: true });
+    }
+  }) as HTMLInputElement;
+
   const ttsLangSelect = h(
     'select',
     { onchange: (e: Event) => persist({ ttsVoiceLang: (e.target as HTMLSelectElement).value as AppSettings['ttsVoiceLang'] }) },
@@ -192,6 +219,30 @@ export async function renderSettingsView(container: HTMLElement): Promise<void> 
       h('div', { class: 'field' }, h('label', null, 'Dzienny limit nowych kart'), newCardsInput),
       h('div', { class: 'field' }, h('label', null, 'Dzienny limit powtórek'), reviewLimitInput),
       h('div', { class: 'field' }, h('label', null, 'Głos wymowy (Web Speech API)'), ttsLangSelect)
+    ),
+    h(
+      'div',
+      { class: 'card-surface' },
+      h('h2', null, 'Przypomnienia'),
+      h(
+        'label',
+        { class: 'checkbox-row' },
+        remindersEnabledCheckbox,
+        'Pokazuj baner "nie uczyłeś się dziś" na liście talii'
+      ),
+      h(
+        'label',
+        { class: 'checkbox-row' },
+        notificationCheckbox,
+        'Spróbuj też wysłać powiadomienie przeglądarki'
+      ),
+      h(
+        'p',
+        { class: 'hint' },
+        notificationSupported
+          ? 'Bez własnego backendu ta aplikacja nie może wysyłać powiadomień, gdy jest całkiem zamknięta - to działa tylko wtedy, gdy aplikacja jest otwarta (karta w przeglądarce albo zainstalowana PWA uruchomiona w tle). Baner na liście talii jest niezawodny niezależnie od tego ustawienia.'
+          : 'Powiadomienia przeglądarki nie są wspierane w tej przeglądarce/urządzeniu. Baner na liście talii nadal działa.'
+      )
     ),
     h('div', { class: 'card-surface' }, h('h2', null, 'Eksport i import danych'), dataSection)
   );

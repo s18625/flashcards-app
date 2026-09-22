@@ -1,6 +1,9 @@
 import { cardRepo, reviewRepo, settingsRepo } from '../../db';
 import { navigate } from '../../router';
 import { nextSrsState } from '../../srs/sm2';
+import { findClozeBlank } from '../../study/cloze';
+import { selectDifficultCards } from '../../study/difficult';
+import { buildQuizOptions } from '../../study/quiz';
 import type { Card, ReviewGrade } from '../../types';
 import { h, icon, mount } from '../dom';
 import { setTopbar } from '../shell';
@@ -15,20 +18,30 @@ const GRADE_BUTTONS: { grade: ReviewGrade; label: string; className: string }[] 
 ];
 
 export async function renderStudySessionView(container: HTMLElement, scope: string): Promise<void> {
-  const backPath = scope === 'all' ? '/study' : `/decks/${scope}`;
-  setTopbar({ title: 'Sesja nauki', backPath });
+  const isDifficult = scope === 'difficult';
+  const backPath = scope === 'all' || isDifficult ? '/study' : `/decks/${scope}`;
+  setTopbar({ title: isDifficult ? 'Trudne słówka' : 'Sesja nauki', backPath });
   mount(container, h('div', { class: 'spinner' }));
 
   const settings = await settingsRepo.getSettings();
-  const deckIds = scope === 'all' ? null : [scope];
 
-  const newDoneToday = await reviewRepo.countNewCardsStudiedToday();
-  const totalDoneToday = await reviewRepo.countReviewsToday();
-  const reviewDoneToday = Math.max(0, totalDoneToday - newDoneToday);
-  const newRemaining = Math.max(0, settings.dailyNewCardsLimit - newDoneToday);
-  const reviewRemaining = Math.max(0, settings.dailyReviewLimit - reviewDoneToday);
-
-  const queue = await cardRepo.getSessionQueue(deckIds, newRemaining, reviewRemaining);
+  let queue: Card[];
+  if (isDifficult) {
+    // Wirtualna talia "Trudne słówka": karty wybrane na podstawie historii
+    // powtórek (częste "Nie pamiętam"/"Trudne"), niezależnie od tego, czy są
+    // aktualnie "due" wg SM-2 i bez wliczania w dzienne limity — to
+    // dodatkowy, dobrowolny trening, a nie część normalnej kolejki.
+    const [allCards, allLogs] = await Promise.all([cardRepo.getAllCards(), reviewRepo.getAllReviews()]);
+    queue = selectDifficultCards(allCards, allLogs);
+  } else {
+    const deckIds = scope === 'all' ? null : [scope];
+    const newDoneToday = await reviewRepo.countNewCardsStudiedToday();
+    const totalDoneToday = await reviewRepo.countReviewsToday();
+    const reviewDoneToday = Math.max(0, totalDoneToday - newDoneToday);
+    const newRemaining = Math.max(0, settings.dailyNewCardsLimit - newDoneToday);
+    const reviewRemaining = Math.max(0, settings.dailyReviewLimit - reviewDoneToday);
+    queue = await cardRepo.getSessionQueue(deckIds, newRemaining, reviewRemaining);
+  }
 
   if (queue.length === 0) {
     mount(
@@ -37,8 +50,14 @@ export async function renderStudySessionView(container: HTMLElement, scope: stri
         'div',
         { class: 'empty-state' },
         icon('graduate'),
-        h('h2', null, 'Brak kart do powtórki'),
-        h('p', null, 'Wszystko powtórzone albo osiągnięto dzienny limit. Zajrzyj później lub zmień limity w Ustawieniach.'),
+        h('h2', null, isDifficult ? 'Brak trudnych słówek' : 'Brak kart do powtórki'),
+        h(
+          'p',
+          null,
+          isDifficult
+            ? 'Nie masz jeszcze żadnych słówek, które regularnie sprawiają Ci trudność. Ucz się dalej — te, które często oceniasz jako „Nie pamiętam” albo „Trudne”, pojawią się tutaj automatycznie.'
+            : 'Wszystko powtórzone albo osiągnięto dzienny limit. Zajrzyj później lub zmień limity w Ustawieniach.'
+        ),
         h('button', { class: 'btn btn-primary', onclick: () => navigate(backPath) }, 'Wróć')
       )
     );
@@ -48,6 +67,8 @@ export async function renderStudySessionView(container: HTMLElement, scope: stri
   const total = queue.length;
   let index = 0;
   let correctCount = 0;
+
+  const quizPool: Card[] = studyPrefs.mode === 'quiz' ? await cardRepo.getAllCards() : [];
 
   renderCurrentCard();
 
@@ -65,7 +86,23 @@ export async function renderStudySessionView(container: HTMLElement, scope: stri
     );
     const counter = h('p', { class: 'muted text-center' }, `Karta ${index + 1} z ${total}`);
 
-    mount(container, progress, counter, studyPrefs.mode === 'type' ? renderTypeCard(card) : renderFlipCard(card));
+    mount(container, progress, counter, renderCardForMode(card));
+  }
+
+  function renderCardForMode(card: Card): HTMLElement {
+    switch (studyPrefs.mode) {
+      case 'type':
+        return renderTypeCard(card);
+      case 'quiz':
+        return renderQuizCard(card);
+      case 'dictation':
+        return renderDictationCard(card);
+      case 'cloze':
+        return renderClozeCard(card);
+      case 'flip':
+      default:
+        return renderFlipCard(card);
+    }
   }
 
   function renderFlipCard(card: Card): HTMLElement {
@@ -75,7 +112,7 @@ export async function renderStudySessionView(container: HTMLElement, scope: stri
     const backMain = isEnPl ? card.translation || '(brak tłumaczenia)' : card.word;
     const backSpeakable = isEnPl ? card.example || null : card.word;
 
-    const flipEl = h('div', { class: 'flip-card', role: 'button', tabindex: '0', 'aria-label': 'Odwróć fiszkę' });
+    const flipEl = h('div', { class: card.image ? 'flip-card has-image' : 'flip-card', role: 'button', tabindex: '0', 'aria-label': 'Odwróć fiszkę' });
     const inner = h(
       'div',
       { class: 'flip-card-inner' },
@@ -83,6 +120,7 @@ export async function renderStudySessionView(container: HTMLElement, scope: stri
         'div',
         { class: 'flip-face' },
         frontSpeakable ? speakerButton(frontSpeakable) : null,
+        cardImage(card),
         h('div', { class: 'flip-word' }, frontText),
         h('div', { class: 'flip-hint' }, 'Dotknij, aby odwrócić')
       ),
@@ -92,7 +130,8 @@ export async function renderStudySessionView(container: HTMLElement, scope: stri
         backSpeakable ? speakerButton(backSpeakable) : null,
         h('div', { class: 'flip-word' }, backMain),
         card.example ? h('div', { class: 'flip-sub' }, card.example) : null,
-        card.partOfSpeech ? h('div', { class: 'badge' }, card.partOfSpeech) : null
+        card.partOfSpeech ? h('div', { class: 'badge' }, card.partOfSpeech) : null,
+        h('div', { class: 'flip-hint' }, 'Przesuń, aby ocenić, albo użyj przycisków')
       )
     );
     flipEl.appendChild(inner);
@@ -104,6 +143,10 @@ export async function renderStudySessionView(container: HTMLElement, scope: stri
     };
     flipEl.addEventListener('click', (e) => {
       if ((e.target as HTMLElement).closest('.icon-button')) return;
+      if (dragMoved) {
+        dragMoved = false;
+        return;
+      }
       toggle();
     });
     flipEl.addEventListener('keydown', (e) => {
@@ -112,6 +155,76 @@ export async function renderStudySessionView(container: HTMLElement, scope: stri
         toggle();
       }
     });
+
+    // Gesty swipe do oceniania: dostępne dopiero po odwróceniu fiszki (trzeba
+    // zobaczyć odpowiedź), niezależne od przycisków oceny, które zawsze
+    // zostają jako podstawowy, dostępny z klawiatury sposób oceny.
+    const SWIPE_THRESHOLD = 80;
+    const TAP_MOVE_THRESHOLD = 10;
+    const SWIPE_TINT_CLASSES = ['swipe-good', 'swipe-again', 'swipe-easy', 'swipe-hard'];
+    let dragging = false;
+    let dragMoved = false;
+    let graded = false;
+    let dragStartX = 0;
+    let dragStartY = 0;
+
+    flipEl.addEventListener('pointerdown', (e: PointerEvent) => {
+      if (!flipped || graded) return;
+      if ((e.target as HTMLElement).closest('.icon-button')) return;
+      dragging = true;
+      dragMoved = false;
+      dragStartX = e.clientX;
+      dragStartY = e.clientY;
+      flipEl.setPointerCapture(e.pointerId);
+      flipEl.classList.add('dragging');
+    });
+
+    flipEl.addEventListener('pointermove', (e: PointerEvent) => {
+      if (!dragging) return;
+      const dx = e.clientX - dragStartX;
+      const dy = e.clientY - dragStartY;
+      if (Math.abs(dx) > TAP_MOVE_THRESHOLD || Math.abs(dy) > TAP_MOVE_THRESHOLD) dragMoved = true;
+      flipEl.style.transform = `translate(${dx}px, ${dy}px) rotate(${dx * 0.04}deg)`;
+      flipEl.classList.remove(...SWIPE_TINT_CLASSES);
+      if (Math.abs(dx) > Math.abs(dy)) {
+        if (dx > 24) flipEl.classList.add('swipe-good');
+        else if (dx < -24) flipEl.classList.add('swipe-again');
+      } else {
+        if (dy < -24) flipEl.classList.add('swipe-easy');
+        else if (dy > 24) flipEl.classList.add('swipe-hard');
+      }
+    });
+
+    const endDrag = (e: PointerEvent): void => {
+      if (!dragging) return;
+      dragging = false;
+      flipEl.classList.remove('dragging');
+      const dx = e.clientX - dragStartX;
+      const dy = e.clientY - dragStartY;
+
+      let grade: ReviewGrade | null = null;
+      if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > SWIPE_THRESHOLD) {
+        grade = dx > 0 ? 'good' : 'again';
+      } else if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > SWIPE_THRESHOLD) {
+        grade = dy < 0 ? 'easy' : 'hard';
+      }
+
+      flipEl.style.transition = 'transform 0.25s ease, opacity 0.25s ease';
+      if (grade) {
+        graded = true;
+        const flyX = Math.abs(dx) >= Math.abs(dy) ? Math.sign(dx) * 600 : dx;
+        const flyY = Math.abs(dy) > Math.abs(dx) ? Math.sign(dy) * 600 : dy;
+        flipEl.style.transform = `translate(${flyX}px, ${flyY}px) rotate(${dx * 0.06}deg)`;
+        flipEl.style.opacity = '0';
+        const finalGrade = grade;
+        window.setTimeout(() => submitGrade(card, finalGrade), 200);
+      } else {
+        flipEl.style.transform = '';
+        flipEl.classList.remove(...SWIPE_TINT_CLASSES);
+      }
+    };
+    flipEl.addEventListener('pointerup', endDrag);
+    flipEl.addEventListener('pointercancel', endDrag);
 
     const scene = h('div', { class: 'flip-scene' }, flipEl);
     const grades = h(
@@ -153,6 +266,7 @@ export async function renderStudySessionView(container: HTMLElement, scope: stri
       'div',
       { class: 'card-surface text-center', style: 'position:relative' },
       promptSpeakable ? speakerButton(promptSpeakable) : null,
+      cardImage(card),
       h('div', { class: 'flip-word' }, promptText)
     );
 
@@ -183,19 +297,200 @@ export async function renderStudySessionView(container: HTMLElement, scope: stri
           card.example ? h('p', { class: 'muted' }, card.example) : null
         )
       );
-      mount(
-        gradesContainer,
-        h(
-          'div',
-          { class: 'grade-row' },
-          ...GRADE_BUTTONS.map((g) =>
-            h('button', { class: `grade-btn ${g.className}`, onclick: () => submitGrade(card, g.grade) }, g.label)
-          )
-        )
-      );
+      mount(gradesContainer, gradeRow(card));
     }
 
     return h('div', null, promptCard, form, resultBox, gradesContainer);
+  }
+
+  function renderQuizCard(card: Card): HTMLElement {
+    const isEnPl = studyPrefs.direction === 'en-pl';
+    const promptText = isEnPl ? card.word : card.translation || '(brak tłumaczenia)';
+    const promptSpeakable = isEnPl ? card.word : null;
+    const correct = (isEnPl ? card.translation : card.word).trim();
+    const candidatePool = quizPool
+      .filter((c) => c.id !== card.id)
+      .map((c) => (isEnPl ? c.translation : c.word));
+    const options = buildQuizOptions(correct, candidatePool);
+
+    // Za mało kart w bazie, by wylosować sensowne dystraktory – dla tej karty wracamy do trybu wpisywania.
+    if (options.length < 2) {
+      return renderTypeCard(card);
+    }
+
+    const resultBox = h('div', { class: 'mt-16' });
+    const gradesContainer = h('div');
+    const optionButtons: HTMLButtonElement[] = [];
+
+    function selectOption(chosen: string, chosenBtn: HTMLButtonElement): void {
+      optionButtons.forEach((b) => (b.disabled = true));
+      const isCorrect = chosen === correct;
+      chosenBtn.classList.add(isCorrect ? 'quiz-option-correct' : 'quiz-option-wrong');
+      if (!isCorrect) {
+        const correctBtn = optionButtons.find((b) => b.textContent === correct);
+        correctBtn?.classList.add('quiz-option-correct');
+      }
+      mount(
+        resultBox,
+        h('div', { class: 'card-surface' }, h('p', { class: isCorrect ? '' : 'muted' }, isCorrect ? '✓ Poprawnie!' : `Poprawna odpowiedź: ${correct}`))
+      );
+      mount(gradesContainer, gradeRow(card));
+    }
+
+    const optionsList = h(
+      'div',
+      { class: 'quiz-options mt-16' },
+      ...options.map((opt) => {
+        const btn = h('button', { type: 'button', class: 'btn btn-block quiz-option' }, opt) as HTMLButtonElement;
+        btn.addEventListener('click', () => selectOption(opt, btn));
+        optionButtons.push(btn);
+        return btn;
+      })
+    );
+
+    const promptCard = h(
+      'div',
+      { class: 'card-surface text-center', style: 'position:relative' },
+      promptSpeakable ? speakerButton(promptSpeakable) : null,
+      cardImage(card),
+      h('div', { class: 'flip-word' }, promptText)
+    );
+
+    return h('div', null, promptCard, optionsList, resultBox, gradesContainer);
+  }
+
+  function renderDictationCard(card: Card): HTMLElement {
+    // Dyktando wymaga syntezy mowy – bez wsparcia przeglądarki wracamy do wpisywania.
+    if (!isTtsSupported()) {
+      return renderTypeCard(card);
+    }
+    const expected = card.word.trim();
+
+    const answerInput = h('input', {
+      type: 'text',
+      autocapitalize: 'off',
+      autocomplete: 'off',
+      placeholder: 'Wpisz usłyszane słowo po angielsku…',
+      'aria-label': 'Twoja odpowiedź'
+    }) as HTMLInputElement;
+
+    const resultBox = h('div', { class: 'mt-16' });
+    const gradesContainer = h('div');
+
+    const promptCard = h(
+      'div',
+      { class: 'card-surface text-center' },
+      icon('speaker'),
+      h('p', { class: 'muted mt-8' }, 'Posłuchaj i wpisz usłyszane słowo'),
+      h(
+        'button',
+        { type: 'button', class: 'btn mt-8', onclick: () => speak(expected, settings.ttsVoiceLang) },
+        icon('speaker'),
+        ' Odtwórz ponownie'
+      )
+    );
+
+    const form = h(
+      'form',
+      {
+        class: 'mt-16',
+        onsubmit: (e: Event) => {
+          e.preventDefault();
+          checkAnswer();
+        }
+      },
+      h('div', { class: 'field' }, answerInput),
+      h('button', { type: 'submit', class: 'btn btn-primary btn-block' }, 'Sprawdź')
+    );
+
+    function checkAnswer(): void {
+      const given = answerInput.value.trim().toLowerCase();
+      const isCorrect = given.length > 0 && given === expected.toLowerCase();
+      answerInput.disabled = true;
+      mount(
+        resultBox,
+        h(
+          'div',
+          { class: 'card-surface' },
+          h('p', { class: isCorrect ? '' : 'muted' }, isCorrect ? '✓ Poprawnie!' : `Poprawna pisownia: ${expected || '(brak danych)'}`),
+          card.translation ? h('p', { class: 'muted' }, card.translation) : null
+        )
+      );
+      mount(gradesContainer, gradeRow(card));
+    }
+
+    // Odtwórz od razu przy pokazaniu karty.
+    speak(expected, settings.ttsVoiceLang);
+
+    return h('div', null, promptCard, form, resultBox, gradesContainer);
+  }
+
+  function renderClozeCard(card: Card): HTMLElement {
+    const blank = findClozeBlank(card.example, card.word);
+    // Brak przykładowego zdania zawierającego słowo – dla tej karty wracamy do wpisywania.
+    if (!blank) {
+      return renderTypeCard(card);
+    }
+    const expected = card.word.trim();
+
+    const answerInput = h('input', {
+      type: 'text',
+      autocapitalize: 'off',
+      autocomplete: 'off',
+      placeholder: 'Wpisz brakujące słowo…',
+      'aria-label': 'Brakujące słowo'
+    }) as HTMLInputElement;
+
+    const resultBox = h('div', { class: 'mt-16' });
+    const gradesContainer = h('div');
+
+    const promptCard = h(
+      'div',
+      { class: 'card-surface' },
+      h('p', { class: 'muted' }, 'Uzupełnij lukę w zdaniu'),
+      h('p', { class: 'cloze-sentence' }, blank.before, h('span', { class: 'cloze-blank' }, '_____'), blank.after),
+      card.translation ? h('p', { class: 'muted mt-8' }, card.translation) : null
+    );
+
+    const form = h(
+      'form',
+      {
+        class: 'mt-16',
+        onsubmit: (e: Event) => {
+          e.preventDefault();
+          checkAnswer();
+        }
+      },
+      h('div', { class: 'field' }, answerInput),
+      h('button', { type: 'submit', class: 'btn btn-primary btn-block' }, 'Sprawdź')
+    );
+
+    function checkAnswer(): void {
+      const given = answerInput.value.trim().toLowerCase();
+      const isCorrect = given.length > 0 && given === expected.toLowerCase();
+      answerInput.disabled = true;
+      mount(
+        resultBox,
+        h('div', { class: 'card-surface' }, h('p', { class: isCorrect ? '' : 'muted' }, isCorrect ? '✓ Poprawnie!' : `Poprawna odpowiedź: ${expected}`))
+      );
+      mount(gradesContainer, gradeRow(card));
+    }
+
+    return h('div', null, promptCard, form, resultBox, gradesContainer);
+  }
+
+  function cardImage(card: Card): HTMLElement | null {
+    return card.image ? h('img', { class: 'card-mnemonic-image', src: card.image, alt: '' }) : null;
+  }
+
+  function gradeRow(card: Card): HTMLElement {
+    return h(
+      'div',
+      { class: 'grade-row' },
+      ...GRADE_BUTTONS.map((g) =>
+        h('button', { class: `grade-btn ${g.className}`, onclick: () => submitGrade(card, g.grade) }, g.label)
+      )
+    );
   }
 
   function speakerButton(text: string): HTMLElement | null {
