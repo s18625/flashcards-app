@@ -2,6 +2,7 @@ import { cardRepo, settingsRepo } from '../../db';
 import { navigate } from '../../router';
 import { enrichWord } from '../../translate/translate';
 import type { PartOfSpeech } from '../../types';
+import { fileToResizedDataUrl } from '../../utils/image';
 import { h, icon, mount } from '../dom';
 import { setTopbar } from '../shell';
 import { showToast } from '../toast';
@@ -65,6 +66,50 @@ export async function renderCardFormView(container: HTMLElement, deckId: string,
 
   const noteInput = h('textarea', { id: 'card-note', maxlength: 300, placeholder: 'Prywatna notatka (opcjonalnie)' }) as HTMLTextAreaElement;
   noteInput.value = existing?.note ?? '';
+
+  let imageDataUrl: string | null = existing?.image ?? null;
+  const imageFieldContainer = h('div', { class: 'field' }) as HTMLDivElement;
+
+  function renderImageField(): void {
+    const fileInput = h('input', { type: 'file', id: 'card-image', accept: 'image/*' }) as HTMLInputElement;
+    fileInput.addEventListener('change', async () => {
+      const file = fileInput.files?.[0];
+      if (!file) return;
+      try {
+        imageDataUrl = await fileToResizedDataUrl(file);
+      } catch {
+        showToast('Nie udało się wczytać obrazka. Spróbuj innego pliku.', 'error');
+        return;
+      } finally {
+        renderImageField();
+      }
+    });
+
+    const removeButton = imageDataUrl
+      ? h(
+          'button',
+          {
+            type: 'button',
+            class: 'btn btn-sm btn-outline mt-8',
+            onclick: () => {
+              imageDataUrl = null;
+              renderImageField();
+            }
+          },
+          icon('trash'),
+          'Usuń zdjęcie'
+        )
+      : null;
+
+    mount(
+      imageFieldContainer,
+      h('label', { for: 'card-image' }, 'Zdjęcie / obrazek (opcjonalnie, wizualna mnemotechnika)'),
+      imageDataUrl ? h('img', { class: 'card-image-preview', src: imageDataUrl, alt: '' }) : null,
+      fileInput,
+      removeButton
+    );
+  }
+  renderImageField();
 
   let debounceTimer: number | undefined;
   wordInput.addEventListener('input', () => {
@@ -142,7 +187,8 @@ export async function renderCardFormView(container: HTMLElement, deckId: string,
           translation: translationInput.value.trim(),
           example: exampleInput.value.trim(),
           partOfSpeech: posSelect.value as PartOfSpeech | '',
-          note: noteInput.value.trim()
+          note: noteInput.value.trim(),
+          image: imageDataUrl
         };
         if (editing && cardId) {
           await cardRepo.updateCard(cardId, payload);
@@ -159,6 +205,7 @@ export async function renderCardFormView(container: HTMLElement, deckId: string,
     h('div', { class: 'field' }, h('label', { for: 'card-example' }, 'Przykładowe zdanie (opcjonalnie)'), exampleInput),
     h('div', { class: 'field' }, h('label', { for: 'card-pos' }, 'Część mowy (opcjonalnie)'), posSelect),
     h('div', { class: 'field' }, h('label', { for: 'card-note' }, 'Notatka (opcjonalnie)'), noteInput),
+    imageFieldContainer,
     h('button', { type: 'submit', class: 'btn btn-primary btn-block' }, editing ? 'Zapisz zmiany' : 'Dodaj fiszkę'),
     deleteButton
   );

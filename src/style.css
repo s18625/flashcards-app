@@ -410,6 +410,26 @@ select:focus {
   cursor: grabbing;
 }
 
+.flip-card.has-image {
+  height: 340px;
+}
+
+.card-mnemonic-image {
+  max-width: 100%;
+  max-height: 100px;
+  border-radius: var(--radius-sm);
+  object-fit: contain;
+}
+
+.card-image-preview {
+  max-width: 100%;
+  max-height: 180px;
+  border-radius: var(--radius-sm);
+  object-fit: contain;
+  display: block;
+  margin: 8px 0;
+}
+
 .flip-card.swipe-good .flip-face-back {
   box-shadow: var(--shadow-md), 0 0 0 4px var(--color-primary);
 }

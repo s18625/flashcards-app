@@ -30,6 +30,12 @@ Interfejs jest po polsku, nauczane słownictwo jest angielskie.
     podręcznika, zamiast rozbijać je na pojedyncze słowa.
 - **Foldery** – opcjonalne grupowanie talii w foldery, żeby łatwiej
   segregować większą liczbę talii tematycznie.
+- **Zdjęcie/obrazek przy fiszce** – opcjonalny obrazek jako wizualna
+  mnemotechnika, dodawany w formularzu fiszki (plik z galerii/aparatu,
+  automatycznie skalowany i kompresowany przed zapisem). Widoczny podczas
+  nauki w trybach, które i tak pokazują słowo/tłumaczenie wprost (fiszka,
+  wpisywanie, quiz) — pominięty w dyktandzie i luce w zdaniu, gdzie
+  zdradzałby odpowiedź. Nigdy nie jest udostępniany razem z talią.
 - **Wyszukiwarka** – szukanie fiszek jednocześnie po wszystkich taliach
   (słowo, tłumaczenie, przykładowe zdanie, notatka), z podglądem talii, do
   której należy wynik, i szybkim przejściem do edycji.

@@ -18,6 +18,7 @@ export interface NewCardInput {
   example?: string;
   partOfSpeech?: PartOfSpeech | '';
   note?: string;
+  image?: string | null;
 }
 
 export async function listCardsByDeck(deckId: string): Promise<Card[]> {
@@ -47,6 +48,7 @@ export async function createCard(input: NewCardInput): Promise<Card> {
     example: (input.example ?? '').trim(),
     partOfSpeech: input.partOfSpeech ?? '',
     note: (input.note ?? '').trim(),
+    image: input.image ?? null,
     createdAt: now,
     updatedAt: now,
     srs: freshSrsState()
@@ -69,6 +71,7 @@ export async function createCards(inputs: NewCardInput[]): Promise<Card[]> {
       example: (input.example ?? '').trim(),
       partOfSpeech: input.partOfSpeech ?? '',
       note: (input.note ?? '').trim(),
+      image: input.image ?? null,
       createdAt: now,
       updatedAt: now,
       srs: freshSrsState()
@@ -82,7 +85,7 @@ export async function createCards(inputs: NewCardInput[]): Promise<Card[]> {
 
 export async function updateCard(
   id: string,
-  patch: Partial<Pick<Card, 'word' | 'translation' | 'example' | 'partOfSpeech' | 'note' | 'deckId'>>
+  patch: Partial<Pick<Card, 'word' | 'translation' | 'example' | 'partOfSpeech' | 'note' | 'deckId' | 'image'>>
 ): Promise<Card | undefined> {
   const db = await getDb();
   const card = await db.get('cards', id);

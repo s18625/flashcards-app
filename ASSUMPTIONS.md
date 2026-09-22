@@ -283,6 +283,38 @@ normalnie aktualizuje jej stan SM-2 i loguje powtórkę, więc regularne
 ćwiczenie w tym trybie realnie poprawia współczynnik łatwości karty i może
 z czasem wypaść z listy trudnych słówek.
 
+## Zdjęcie/obrazek przy fiszce
+
+Opcjonalne pole `Card.image` (data URL) dodawane w formularzu fiszki
+(`src/ui/views/cardFormView.ts`) jako wizualna mnemotechnika. Kluczowe
+decyzje:
+
+- **Skalowanie i kompresja po stronie klienta** (`src/utils/image.ts`,
+  `fileToResizedDataUrl`) – zdjęcie z aparatu telefonu potrafi mieć kilka
+  MB; przed zapisem do IndexedDB jest skalowane do maks. 800px po dłuższym
+  boku i kodowane jako JPEG (jakość 0,8) przez `canvas.toDataURL`. Bez tego
+  IndexedDB (i cały eksport/import talii) szybko rozdęłyby się do
+  nieproporcjonalnych rozmiarów. To cienki wrapper nad przeglądarkowym
+  `createImageBitmap`/`canvas` – bez testów jednostkowych z tego samego
+  powodu co `src/ui/tts.ts` (nie da się tego sensownie przetestować bez
+  jsdom-canvas), zweryfikowane ręcznie w przeglądarce.
+- **Widoczność podczas nauki jest świadomie ograniczona do trybów, które i
+  tak już pokazują słowo/tłumaczenie wprost jako "prompt"** – fiszka
+  (przód), wpisywanie odpowiedzi i quiz. Obrazek jest **pominięty** w
+  dyktandzie (gdzie zadaniem jest odgadnięcie pisowni ze słuchu – obrazek
+  natychmiast zdradziłby słowo) i w uzupełnianiu luki w zdaniu (gdzie
+  zadaniem jest odgadnięcie słowa z kontekstu zdania – obrazek też by to
+  zepsuł). To nie przeoczenie, tylko celowa decyzja o poprawności
+  ćwiczenia.
+- **Nigdy nie trafia do udostępniania talii ani eksportu CSV** –
+  `ShareCardPayload`/`SharePayload` (`src/types.ts`) świadomie nie mają
+  pola `image`, a `serializeDeckForSharing` buduje payload przez jawne
+  wskazanie dozwolonych pól (nie przez rozpakowanie całego obiektu karty),
+  więc nawet przyszłe pola dodane do `Card` nie „przeciekną” przypadkiem.
+  Pokryte regresyjnym testem w `src/share/share.test.ts`. Powód: obrazki
+  potrafią być duże, a talia jest myślana jako udostępnianie *słownictwa*,
+  nie prywatnych zdjęć/plików z urządzenia użytkownika.
+
 ## Dzienne limity
 
 - Limit **nowych kart dziennie** liczony jest dokładnie na podstawie

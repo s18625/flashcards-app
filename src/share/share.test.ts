@@ -49,6 +49,12 @@ describe('serializeDeckForSharing', () => {
     expect(JSON.stringify(payload)).not.toContain('easeFactor');
     expect(JSON.stringify(payload)).not.toContain('repetitions');
   });
+
+  it('never includes the card image, even when set', () => {
+    const payload = serializeDeckForSharing(makeDeck(), [makeCard({ image: 'data:image/jpeg;base64,AAAA' })]);
+    expect(payload.cards[0]).not.toHaveProperty('image');
+    expect(JSON.stringify(payload)).not.toContain('data:image');
+  });
 });
 
 describe('encode/decode round-trip', () => {

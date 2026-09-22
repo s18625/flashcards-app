@@ -112,7 +112,7 @@ export async function renderStudySessionView(container: HTMLElement, scope: stri
     const backMain = isEnPl ? card.translation || '(brak tłumaczenia)' : card.word;
     const backSpeakable = isEnPl ? card.example || null : card.word;
 
-    const flipEl = h('div', { class: 'flip-card', role: 'button', tabindex: '0', 'aria-label': 'Odwróć fiszkę' });
+    const flipEl = h('div', { class: card.image ? 'flip-card has-image' : 'flip-card', role: 'button', tabindex: '0', 'aria-label': 'Odwróć fiszkę' });
     const inner = h(
       'div',
       { class: 'flip-card-inner' },
@@ -120,6 +120,7 @@ export async function renderStudySessionView(container: HTMLElement, scope: stri
         'div',
         { class: 'flip-face' },
         frontSpeakable ? speakerButton(frontSpeakable) : null,
+        cardImage(card),
         h('div', { class: 'flip-word' }, frontText),
         h('div', { class: 'flip-hint' }, 'Dotknij, aby odwrócić')
       ),
@@ -265,6 +266,7 @@ export async function renderStudySessionView(container: HTMLElement, scope: stri
       'div',
       { class: 'card-surface text-center', style: 'position:relative' },
       promptSpeakable ? speakerButton(promptSpeakable) : null,
+      cardImage(card),
       h('div', { class: 'flip-word' }, promptText)
     );
 
@@ -350,6 +352,7 @@ export async function renderStudySessionView(container: HTMLElement, scope: stri
       'div',
       { class: 'card-surface text-center', style: 'position:relative' },
       promptSpeakable ? speakerButton(promptSpeakable) : null,
+      cardImage(card),
       h('div', { class: 'flip-word' }, promptText)
     );
 
@@ -474,6 +477,10 @@ export async function renderStudySessionView(container: HTMLElement, scope: stri
     }
 
     return h('div', null, promptCard, form, resultBox, gradesContainer);
+  }
+
+  function cardImage(card: Card): HTMLElement | null {
+    return card.image ? h('img', { class: 'card-mnemonic-image', src: card.image, alt: '' }) : null;
   }
 
   function gradeRow(card: Card): HTMLElement {

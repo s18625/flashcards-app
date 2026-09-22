@@ -46,6 +46,8 @@ export interface Card {
   example: string;
   partOfSpeech: PartOfSpeech | '';
   note: string;
+  /** Opcjonalny obrazek (data URL, zmniejszony/skompresowany) – wizualna mnemotechnika. Nigdy nie jest udostępniany. */
+  image?: string | null;
   createdAt: number;
   updatedAt: number;
   srs: SrsState;
