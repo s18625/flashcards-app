@@ -290,12 +290,21 @@ nie pamięta się, gdzie dane słówko zostało zapisane.
 karty ze **wszystkich talii naraz** na podstawie historii powtórek, a nie
 bieżącego stanu SM-2: dla każdej karty liczy ważony wskaźnik trudności z
 logu powtórek — ocena „Nie pamiętam” liczy się jako 1, „Trudne” jako 0,5,
-„Dobrze”/„Łatwo” jako 0 — i kwalifikuje kartę, jeśli ma co najmniej 2
-powtórki w historii oraz wskaźnik ≥ 0,34 (czyli z grubsza: częściej niż co
-trzecia powtórka to „Nie pamiętam”, albo odpowiednik w „Trudnych”).
+„Dobrze”/„Łatwo” jako 0 — i kwalifikuje kartę, jeśli ma co najmniej 1
+powtórkę w historii oraz wskaźnik ≥ 0,34 (w praktyce: samo jedno „Nie
+pamiętam” już wystarcza — score=1,0 — podobnie jedno „Trudne” — score=0,5).
 Wyniki są sortowane od najtrudniejszej, ograniczone do 50 kart. Nowe,
 nigdy niepowtarzane karty nigdy się nie kwalifikują — na ich temat nie ma
 jeszcze żadnego sygnału.
+
+**Poprawka (zgłoszony bug „nie działa dodawanie do trudnych”):** próg był
+pierwotnie ustawiony na co najmniej 2 powtórki. Ponieważ kolejka sesji
+nauki jest budowana raz na starcie sesji (`getSessionQueue`), doliczenie
+się drugiej powtórki tej samej karty wymagało odbycia całej **osobnej,
+kolejnej sesji** — jedno kliknięcie „Nie pamiętam” nigdy samo z siebie nie
+trafiało na tę listę, co dla użytkownika wyglądało jak niedziałająca
+funkcja. Próg obniżono do 1 powtórki, żeby funkcja reagowała natychmiast
+na pojedynczą złą ocenę, zgodnie z intuicyjnym oczekiwaniem.
 
 Sesja nauki dla tej wirtualnej talii (`/study/difficult`, przycisk „Trudne
 słówka” na ekranie wyboru trybu nauki) celowo **ignoruje** bieżący
