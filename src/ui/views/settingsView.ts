@@ -1,9 +1,9 @@
-import { cardRepo, deckRepo, settingsRepo } from '../../db';
+import { cardRepo, deckRepo, folderRepo, settingsRepo } from '../../db';
 import { navigate } from '../../router';
-import { cardsToCsv, parseCsvToCards } from '../../share/csv';
+import { cardsToCsv, cardsToCsvWithDeck, parseCsvToCards } from '../../share/csv';
 import { buildShareFile, parseJsonPayload, serializeDeckForSharing, ShareValidationError, validateSharePayload } from '../../share/share';
 import { downloadBlob } from '../../share/webshare';
-import type { AppSettings, OcrMethod } from '../../types';
+import type { AppSettings, OcrMethod, ShareCardPayload } from '../../types';
 import { h, mount } from '../dom';
 import { setPendingImport } from '../pendingImport';
 import { applyTheme } from '../theme';
@@ -15,7 +15,7 @@ export async function renderSettingsView(container: HTMLElement): Promise<void> 
   mount(container, h('div', { class: 'spinner' }));
 
   const settings = await settingsRepo.getSettings();
-  const decks = await deckRepo.listDecks();
+  const [decks, folders] = await Promise.all([deckRepo.listDecks(), folderRepo.listFolders()]);
 
   async function persist(patch: Partial<AppSettings>): Promise<void> {
     const updated = await settingsRepo.saveSettings(patch);
@@ -160,6 +160,27 @@ export async function renderSettingsView(container: HTMLElement): Promise<void> 
     }
   }) as HTMLInputElement;
 
+  const folderSelectForData = h(
+    'select',
+    null,
+    ...folders.map((f) => h('option', { value: f.id }, f.name))
+  ) as HTMLSelectElement;
+
+  const folderExportSection =
+    folders.length === 0
+      ? null
+      : h(
+          'div',
+          { class: 'mt-16' },
+          h('div', { class: 'field' }, h('label', null, 'Folder do eksportu (wszystkie talie naraz)'), folderSelectForData),
+          h(
+            'div',
+            { class: 'row row-wrap' },
+            h('button', { class: 'btn btn-outline', onclick: () => exportFolder(folderSelectForData.value, 'json') }, 'Eksportuj JSON (osobny plik na talię)'),
+            h('button', { class: 'btn btn-outline', onclick: () => exportFolder(folderSelectForData.value, 'csv') }, 'Eksportuj CSV (jeden połączony plik)')
+          )
+        );
+
   const dataSection =
     decks.length === 0
       ? h('p', { class: 'muted' }, 'Dodaj talię, aby móc eksportować lub importować dane.')
@@ -173,6 +194,7 @@ export async function renderSettingsView(container: HTMLElement): Promise<void> 
             h('button', { class: 'btn btn-outline', onclick: () => exportDeck(deckSelectForData.value, 'json') }, 'Eksportuj JSON'),
             h('button', { class: 'btn btn-outline', onclick: () => exportDeck(deckSelectForData.value, 'csv') }, 'Eksportuj CSV')
           ),
+          folderExportSection,
           h('button', { class: 'btn btn-outline btn-block mt-16', onclick: () => importFileInput.click() }, 'Importuj z pliku JSON/CSV'),
           importFileInput
         );
@@ -187,9 +209,39 @@ export async function renderSettingsView(container: HTMLElement): Promise<void> 
       downloadBlob(filename, blob);
     } else {
       const csv = cardsToCsv(payload.cards);
-      downloadBlob(`talia-${deck.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.csv`, new Blob([csv], { type: 'text/csv' }));
+      downloadBlob(`talia-${slugify(deck.name)}.csv`, new Blob([csv], { type: 'text/csv' }));
     }
     showToast('Plik pobrany.');
+  }
+
+  async function exportFolder(folderId: string, format: 'json' | 'csv'): Promise<void> {
+    const folder = folders.find((f) => f.id === folderId);
+    if (!folder) return;
+    const folderDecks = decks.filter((d) => d.folderId === folderId);
+    if (folderDecks.length === 0) {
+      showToast(`Folder "${folder.name}" nie ma żadnych talii.`, 'error');
+      return;
+    }
+
+    if (format === 'json') {
+      for (const deck of folderDecks) {
+        const cards = await cardRepo.listCardsByDeck(deck.id);
+        const { filename, blob } = buildShareFile(serializeDeckForSharing(deck, cards));
+        downloadBlob(filename, blob);
+      }
+      showToast(`Pobrano ${folderDecks.length} ${deckWord(folderDecks.length)} z folderu "${folder.name}".`);
+    } else {
+      const rows: { deckName: string; card: ShareCardPayload }[] = [];
+      for (const deck of folderDecks) {
+        const cards = await cardRepo.listCardsByDeck(deck.id);
+        const payload = serializeDeckForSharing(deck, cards);
+        for (const card of payload.cards) rows.push({ deckName: deck.name, card });
+      }
+      const csv = cardsToCsvWithDeck(rows);
+      const slug = slugify(folder.name);
+      downloadBlob(`folder-${slug}.csv`, new Blob([csv], { type: 'text/csv' }));
+      showToast(`Pobrano połączony CSV dla folderu "${folder.name}".`);
+    }
   }
 
   mount(
@@ -246,4 +298,24 @@ export async function renderSettingsView(container: HTMLElement): Promise<void> 
     ),
     h('div', { class: 'card-surface' }, h('h2', null, 'Eksport i import danych'), dataSection)
   );
+}
+
+/** Nazwa pliku bezpieczna dla systemu plików, z transliteracją polskich znaków diakrytycznych zamiast ich obcinania. */
+function slugify(name: string): string {
+  return (
+    name
+      .toLowerCase()
+      .normalize('NFKD')
+      .replace(/[̀-ͯ]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'talia'
+  );
+}
+
+function deckWord(count: number): string {
+  if (count === 1) return 'talia';
+  const lastDigit = count % 10;
+  const lastTwo = count % 100;
+  if (lastDigit >= 2 && lastDigit <= 4 && !(lastTwo >= 12 && lastTwo <= 14)) return 'talie';
+  return 'talii';
 }

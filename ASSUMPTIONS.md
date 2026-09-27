@@ -165,6 +165,29 @@ Usunięcie folderu nie usuwa talii — tylko odpina je od folderu
 „Bez folderu” (tylko gdy istnieje choć jeden folder — przy braku folderów
 lista talii jest płaska, bez zbędnych nagłówków).
 
+### Eksport całego folderu
+
+Ustawienia pozwalają wyeksportować od razu wszystkie talie z wybranego
+folderu, dwoma sposobami o świadomie różnej charakterystyce:
+
+- **JSON – osobny plik na każdą talię.** Pod maską to po prostu pętla po
+  talach z folderu wywołująca dokładnie ten sam `serializeDeckForSharing`
+  + `buildShareFile`, co zwykły eksport pojedynczej talii — każdy plik jest
+  więc w 100% tym samym formatem co dotychczas i można go zaimportować
+  z powrotem pojedynczo bez żadnych zmian w logice importu. Przeglądarka
+  pobiera po prostu N plików pod rząd (może raz zapytać o zgodę na
+  pobieranie wielu plików naraz — to normalne zachowanie przeglądarki).
+- **CSV – jeden połączony plik.** Zamiast N osobnych plików CSV (mało
+  użyteczne przy przeglądaniu w arkuszu kalkulacyjnym), wszystkie karty ze
+  wszystkich talii folderu trafiają do jednego pliku z dodatkową wiodącą
+  kolumną `deck` (`cardsToCsvWithDeck` w `src/share/csv.ts`). To świadomie
+  **tylko eksport** — import CSV (`parseCsvToCards`) nie rozpoznaje
+  kolumny `deck` i przy ponownym imporcie połączyłby wszystkie wiersze
+  w jedną talię, tracąc oryginalny podział na talie. Kto potrzebuje
+  pełnej, odwracalnej kopii zapasowej całego folderu, powinien użyć
+  eksportu JSON (osobne pliki), a CSV traktować jako szybki podgląd/eksport
+  do Excela, nie jako ścieżkę powrotną.
+
 ## Algorytm SM-2
 
 - Oceny UI **Nie pamiętam / Trudne / Dobrze / Łatwo** mapowane są na skalę
