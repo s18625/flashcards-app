@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cardsToCsv, parseCsvToCards } from './csv';
+import { cardsToCsv, cardsToCsvWithDeck, parseCsvToCards } from './csv';
 import { ShareValidationError } from './share';
 
 describe('cardsToCsv / parseCsvToCards round-trip', () => {
@@ -36,5 +36,30 @@ describe('parseCsvToCards - malformed input', () => {
 
   it('handles a header-only file gracefully', () => {
     expect(parseCsvToCards('word,translation')).toEqual([]);
+  });
+});
+
+describe('cardsToCsvWithDeck', () => {
+  it('prefixes each row with a deck column and can be parsed back by the plain card parser', () => {
+    const rows = [
+      { deckName: 'Kuchnia', card: { word: 'spoon', translation: 'łyżka', example: '', partOfSpeech: 'noun' as const, note: '' } },
+      { deckName: 'Podróże', card: { word: 'airport', translation: 'lotnisko', example: '', partOfSpeech: 'noun' as const, note: '' } }
+    ];
+    const csv = cardsToCsvWithDeck(rows);
+    expect(csv.split('\r\n')[0]).toBe('deck,word,translation,example,partOfSpeech,note');
+
+    // parseCsvToCards ignores the unrecognized leading "deck" column but still recovers every card correctly.
+    const parsed = parseCsvToCards(csv);
+    expect(parsed).toEqual(rows.map((r) => r.card));
+  });
+
+  it('escapes deck names containing commas or quotes just like any other field', () => {
+    const rows = [{ deckName: 'Praca, "ważne"', card: { word: 'cat', translation: 'kot', example: '', partOfSpeech: '' as const, note: '' } }];
+    const csv = cardsToCsvWithDeck(rows);
+    expect(csv.split('\r\n')[1]).toBe('"Praca, ""ważne""",cat,kot,,,');
+  });
+
+  it('produces just the header row for an empty list', () => {
+    expect(cardsToCsvWithDeck([])).toBe('deck,word,translation,example,partOfSpeech,note');
   });
 });

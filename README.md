@@ -64,7 +64,12 @@ Interfejs jest po polsku, nauczane słownictwo jest angielskie.
   przycisków oceny.
 - **Statystyki** – liczba fiszek, dzisiejsze powtórki, seria dni (streak),
   procent poprawnych odpowiedzi.
-- **Eksport / import** danych talii do JSON i CSV (Ustawienia).
+- **Eksport / import** danych talii do JSON i CSV (Ustawienia). Można też
+  wyeksportować **cały folder naraz**: jako osobny plik JSON na każdą talię
+  (pełna wierność, importowalne pojedynczo tak jak zwykły eksport talii)
+  albo jako jeden połączony plik CSV ze wszystkimi kartami z folderu i
+  dodatkową kolumną „deck” (wygodne do przeglądania w arkuszu
+  kalkulacyjnym).
 - **Udostępnianie talii bez backendu** – link (dane skompresowane w
   fragmencie URL), plik `.json` (Web Share API lub pobranie), kod QR dla
   małych talii. Import zawsze pokazuje podgląd przed dodaniem i pozwala

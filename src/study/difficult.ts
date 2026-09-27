@@ -9,7 +9,7 @@ export interface DifficultOptions {
   limit?: number;
 }
 
-const DEFAULT_MIN_REVIEWS = 2;
+const DEFAULT_MIN_REVIEWS = 1;
 const DEFAULT_MIN_SCORE = 0.34;
 const DEFAULT_LIMIT = 50;
 
@@ -20,6 +20,12 @@ const DEFAULT_LIMIT = 50;
  * odpowiednio dużo powtórek oraz wystarczająco wysoki wskaźnik trudności –
  * posortowane od najtrudniejszej. Nowe, nigdy nie powtarzane karty nigdy się
  * nie kwalifikują (nie ma jeszcze na ich temat żadnego sygnału).
+ *
+ * Domyślny próg powtórek to celowo **1** (nie więcej): kolejka sesji nauki
+ * jest budowana raz na starcie sesji, więc doliczenie się drugiej powtórki
+ * tej samej karty wymagałoby osobnej, kolejnej sesji – przy wyższym progu
+ * pojedyncze kliknięcie „Nie pamiętam” nigdy nie trafiłoby na tę listę,
+ * co dla użytkownika wygląda jak niedziałająca funkcja (zgłoszone jako bug).
  */
 export function selectDifficultCards(cards: Card[], logs: ReviewLog[], options: DifficultOptions = {}): Card[] {
   const minReviews = options.minReviews ?? DEFAULT_MIN_REVIEWS;

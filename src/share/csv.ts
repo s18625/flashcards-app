@@ -20,6 +20,19 @@ export function cardsToCsv(cards: ShareCardPayload[]): string {
   return lines.join('\r\n');
 }
 
+/**
+ * Jak cardsToCsv, ale z dodatkową wiodącą kolumną "deck" – do eksportu
+ * wielu talii naraz (np. całego folderu) w jednym pliku CSV, wygodnym do
+ * przeglądania/sortowania w arkuszu kalkulacyjnym.
+ */
+export function cardsToCsvWithDeck(rows: { deckName: string; card: ShareCardPayload }[]): string {
+  const lines = [['deck', ...CSV_HEADER].join(',')];
+  for (const { deckName, card } of rows) {
+    lines.push([deckName, ...CSV_HEADER.map((key) => card[key] ?? '')].map(csvEscape).join(','));
+  }
+  return lines.join('\r\n');
+}
+
 /** Parsuje surowy tekst CSV na wiersze pól, obsługując cudzysłowy i przecinki/nowe linie wewnątrz pól. */
 function parseCsvRows(text: string): string[][] {
   const rows: string[][] = [];

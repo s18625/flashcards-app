@@ -29,10 +29,27 @@ describe('selectDifficultCards', () => {
     expect(selectDifficultCards(cards, [])).toEqual([]);
   });
 
-  it('excludes a card below the minimum review count even with an "again" grade', () => {
+  it('includes a card after just a single "again" review under the default settings', () => {
+    // Regression test: the default used to require 2 reviews before a card could ever
+    // qualify, but the study-session queue is only built once at the start of a
+    // session, so reaching a second review of the same card requires a whole
+    // separate session. A single bad grade never showed up here, which looked like
+    // a broken feature to users who tried marking one word "Nie pamiętam" once.
     const cards = [makeCard('c1')];
     const logs = [makeLog('c1', 'again')];
-    expect(selectDifficultCards(cards, logs)).toEqual([]);
+    expect(selectDifficultCards(cards, logs).map((c) => c.id)).toEqual(['c1']);
+  });
+
+  it('includes a card after just a single "hard" review under the default settings', () => {
+    const cards = [makeCard('c1')];
+    const logs = [makeLog('c1', 'hard')];
+    expect(selectDifficultCards(cards, logs).map((c) => c.id)).toEqual(['c1']);
+  });
+
+  it('excludes a card below an explicitly configured minimum review count', () => {
+    const cards = [makeCard('c1')];
+    const logs = [makeLog('c1', 'again')];
+    expect(selectDifficultCards(cards, logs, { minReviews: 2 })).toEqual([]);
   });
 
   it('includes a card with 1 again out of 2 reviews (score 0.5 >= default 0.34)', () => {
